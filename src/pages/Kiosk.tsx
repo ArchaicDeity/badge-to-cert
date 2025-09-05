@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
-import {
+import { 
+  mockLearners,
   mockQuestions,
   mockCohorts,
   getEnterpriseById,
@@ -60,6 +61,7 @@ const Kiosk = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timer, setTimer] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isLoadingLearners, setIsLoadingLearners] = useState(false);
@@ -120,6 +122,18 @@ const Kiosk = () => {
     }
   }, [quiz.retakeAvailableAt, quiz.attempts, blocks, currentIndex]);
 
+  // rebuild quiz when question set or config changes
+  useEffect(() => {
+    const block = blocks[currentIndex];
+    if (!block || block.kind !== 'ASSESSMENT') return;
+    if (questions.length === 0) return;
+    const cfg = parseConfig(block);
+    const qs = buildQuestions(cfg);
+    setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
+    setQuestionIndex(0);
+    setTimer((cfg.timeLimitMinutes ?? 0) * 60);
+  }, [questions, blocks, currentIndex]);
+
   const parseConfig = (block: CourseBlock): BlockConfig => {
     try {
       return block.configJson ? JSON.parse(block.configJson) : {};
@@ -129,8 +143,8 @@ const Kiosk = () => {
   };
 
   const buildQuestions = (cfg: BlockConfig): Question[] => {
-    const count = cfg.numQuestions ?? mockQuestions.length;
-    const shuffled = [...mockQuestions];
+    const count = cfg.numQuestions ?? questions.length;
+    const shuffled = [...questions];
     if (cfg.shuffleQuestions) {
       shuffled.sort(() => Math.random() - 0.5);
     }
@@ -148,7 +162,19 @@ const Kiosk = () => {
     }
   };
 
-  const startBlock = (index: number) => {
+  const loadQuestions = async (blockId: number) => {
+    try {
+      const res = await fetch(`/api/kiosk/questions/${blockId}`);
+      const data: { questions: Question[] } = await res.json();
+      setQuestions(data.questions ?? []);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Failed to load questions', variant: 'destructive' });
+      setQuestions([]);
+    }
+  };
+
+  const startBlock = async (index: number) => {
     if (index >= blocks.length) {
       setStep('complete');
       return;
@@ -156,14 +182,10 @@ const Kiosk = () => {
 
     setCurrentIndex(index);
     const block = blocks[index];
-    const cfg = parseConfig(block);
-
     if (block.kind === 'ASSESSMENT') {
-      const qs = buildQuestions(cfg);
-      setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
-      setQuestionIndex(0);
-      setTimer((cfg.timeLimitMinutes ?? 0) * 60);
+      await loadQuestions(block.id);
     } else {
+      const cfg = parseConfig(block);
       setTimer((cfg.durationMinutes ?? 0) * 60);
     }
 
@@ -183,6 +205,11 @@ const Kiosk = () => {
       setIsSubmitting(false);
       return;
     }
+
+    setCurrentLearner(learner);
+    await loadBlocks(cohortId ?? '0');
+    await startBlock(0);
+    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
     try {
       setCurrentLearner(learner);
       await loadBlocks(cohortId ?? '0');
@@ -214,7 +241,7 @@ const Kiosk = () => {
     await updateProgress(status, score);
     const block = blocks[currentIndex];
     if (status === 'COMPLETED' || !block.isMandatory) {
-      startBlock(currentIndex + 1);
+      await startBlock(currentIndex + 1);
     } else {
       setStep('complete');
     }
@@ -383,7 +410,7 @@ const Kiosk = () => {
           </Card>
         )}
 
-        {step === 'block' && currentBlock && currentBlock.kind === 'ASSESSMENT' && (
+        {step === 'block' && currentBlock && currentBlock.kind === 'ASSESSMENT' && quiz.questions.length > 0 && (
           <div className="space-y-6">
             <Card>
               <CardContent className="p-4">
