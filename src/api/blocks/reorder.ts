@@ -1,18 +1,30 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+
+import type { Request, Response } from 'express';
 import { db } from '@/db'; // TODO: implement database connection
+import type { NextApiRequest, NextApiResponse } from 'next';
+import db from '@/db';
 import { courseBlocks } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  const { courseId, order } = req.body as { courseId: number; order: number[] };
+  const { order } = req.body as { order: number[] };
 
   if (!Array.isArray(order)) {
     res.status(400).json({ error: 'Invalid order array' });
+    return;
+  }
+
+  try {
+    // Test database connection before starting the transaction.
+    await db.select({ id: courseBlocks.id }).from(courseBlocks).limit(1);
+  } catch (err) {
+    console.error('Database connection failed', err);
+    res.status(500).json({ error: 'Database connection failed' });
     return;
   }
 

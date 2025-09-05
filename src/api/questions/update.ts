@@ -1,9 +1,9 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { Request, Response } from 'express';
 import { db } from '@/db';
 import { questions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'PUT') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
