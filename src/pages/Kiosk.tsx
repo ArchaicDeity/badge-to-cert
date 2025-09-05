@@ -7,8 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
-import { mockLearners, mockQuestions, type Question, type Learner } from '@/lib/mockData';
-import { Clock, User, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import {
   mockQuestions,
   mockLearners,
@@ -19,7 +17,6 @@ import {
   type Learner,
 } from '@/lib/mockData';
 import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
-
 import { useToast } from '@/hooks/use-toast';
 
 type KioskStep = 'badge-input' | 'block' | 'complete';
@@ -66,23 +63,10 @@ const Kiosk = () => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
 
-  // validate kiosk token
-
-  const cohort = mockCohorts.find(c => c.id === (cohortId || '1'));
+  const cohort = mockCohorts.find((c) => c.id === (cohortId || '1'));
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(cohort?.enterpriseId);
-
-  const [step, setStep] = useState<KioskStep>('badge-input');
-  const [badgeId, setBadgeId] = useState('');
-  const [currentLearner, setCurrentLearner] = useState<Learner | null>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
-  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes
-  const [quizResult, setQuizResult] = useState<{ score: number; passed: boolean } | null>(null);
-
-  // Validate kiosk token
 
   useEffect(() => {
     if (!token || token !== 'demo123') {
@@ -278,13 +262,10 @@ const Kiosk = () => {
 
   const currentBlock = blocks[currentIndex];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      <div className="bg-primary text-primary-foreground p-4 text-center">
-        <h1 className="text-2xl font-bold">SASOL First Aid Training</h1>
-
-      {/* Kiosk Header */}
-      <div className="bg-primary text-primary-foreground p-4 text-center flex flex-col items-center">
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
+        {/* Kiosk Header */}
+        <div className="bg-primary text-primary-foreground p-4 text-center flex flex-col items-center">
         {enterprise?.brandLogoPath && (
           <img
             src={enterprise.brandLogoPath}
@@ -297,75 +278,68 @@ const Kiosk = () => {
         <p className="text-primary-foreground/80">Theory Assessment Kiosk</p>
       </div>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {step === 'badge-input' && (
-          <Card className="shadow-xl">
-            <CardHeader className="text-center">
-              <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <User className="h-8 w-8 text-primary" />
-              </div>
-              <CardTitle className="text-2xl">Badge Check-in</CardTitle>
-              <CardDescription>Scan or enter your badge ID to begin the assessment</CardDescription>
-          <>
-            {courses.length > 0 && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Courses</CardTitle>
+          {step === 'badge-input' && (
+            <>
+              {courses.length > 0 && (
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle>Courses</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {courses.map((c) => (
+                        <li key={c.id}>{c.title}</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+              <Card className="shadow-xl">
+                <CardHeader className="text-center">
+                  <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                    <User className="h-8 w-8 text-primary" />
+                  </div>
+                  <CardTitle className="text-2xl">Badge Check-in</CardTitle>
+                  <CardDescription>
+                    Scan or enter your badge ID to begin the theory assessment
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {courses.map(c => (
-                      <li key={c.id}>{c.title}</li>
-                    ))}
-                  </ul>
+                  <form onSubmit={handleBadgeSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="badgeId" className="text-lg">
+                        Badge ID
+                      </Label>
+                      <Input
+                        id="badgeId"
+                        type="text"
+                        value={badgeId}
+                        onChange={(e) => setBadgeId(e.target.value)}
+                        placeholder="Enter or scan badge ID"
+                        className="text-xl py-6 text-center font-mono"
+                        autoFocus
+                        required
+                      />
+                    </div>
+                    <Button type="submit" size="lg" className="w-full text-lg py-6">
+                      Start
+                    </Button>
+                  </form>
+
+                  <div className="mt-8 p-4 bg-muted/50 rounded-lg">
+                    <h3 className="font-semibold mb-2">Demo Badge IDs:</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {mockLearners.map((l) => (
+                        <div key={l.id} className="font-mono">
+                          {l.badgeId} - {l.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            )}
-            <Card className="shadow-xl">
-              <CardHeader className="text-center">
-                <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                  <User className="h-8 w-8 text-primary" />
-                </div>
-                <CardTitle className="text-2xl">Badge Check-in</CardTitle>
-              <CardDescription>
-                Scan or enter your badge ID to begin the theory assessment
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleBadgeSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="badgeId" className="text-lg">
-                    Badge ID
-                  </Label>
-                  <Input
-                    id="badgeId"
-                    type="text"
-                    value={badgeId}
-                    onChange={(e) => setBadgeId(e.target.value)}
-                    placeholder="Enter or scan badge ID"
-                    className="text-xl py-6 text-center font-mono"
-                    autoFocus
-                    required
-                  />
-                </div>
-                <Button type="submit" size="lg" className="w-full text-lg py-6">
-                  Start
-                </Button>
-              </form>
-
-              <div className="mt-8 p-4 bg-muted/50 rounded-lg">
-                <h3 className="font-semibold mb-2">Demo Badge IDs:</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {mockLearners.map((l) => (
-                    <div key={l.id} className="font-mono">
-                      {l.badgeId} - {l.name}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          </>
-        )}
+            </>
+          )}
 
         {step === 'block' && currentBlock && currentBlock.kind === 'CONTENT' && (
           <Card className="shadow-xl">
