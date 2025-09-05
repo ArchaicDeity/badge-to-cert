@@ -59,14 +59,28 @@ const Dashboard = () => {
   }
 
   const enrollments = getCohortEnrollments(selectedCohort.id);
-  
-  const stats = {
-    total: enrollments.length,
-    notStarted: enrollments.filter(e => e.status === 'NOT_STARTED').length,
-    theoryPass: enrollments.filter(e => e.status === 'THEORY_PASS').length,
-    certified: enrollments.filter(e => e.status === 'PRACTICAL_PASS').length,
-    nyc: enrollments.filter(e => e.status === 'NYC').length,
-  };
+
+  const stats = enrollments.reduce(
+    (acc, e) => {
+      acc.total += 1;
+      switch (e.status) {
+        case 'NOT_STARTED':
+          acc.notStarted += 1;
+          break;
+        case 'THEORY_PASS':
+          acc.theoryPass += 1;
+          break;
+        case 'PRACTICAL_PASS':
+          acc.certified += 1;
+          break;
+        case 'NYC':
+          acc.nyc += 1;
+          break;
+      }
+      return acc;
+    },
+    { total: 0, notStarted: 0, theoryPass: 0, certified: 0, nyc: 0 }
+  );
 
   const handleUploadRoster = () => setRosterOpen(true);
 
@@ -322,7 +336,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {enrollment.theoryScore && (
+                    {enrollment.theoryScore !== undefined && (
                       <div className="text-sm">
                         Theory: <span className="font-medium">{enrollment.theoryScore}%</span>
                       </div>
