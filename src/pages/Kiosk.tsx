@@ -68,8 +68,15 @@ const Kiosk = () => {
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [learners, setLearners] = useState<Learner[]>([]);
-  const [isLoadingLearners, setIsLoadingLearners] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // loading and error states for data fetching
+  const [isLoadingCohort, setIsLoadingCohort] = useState(false);
+  const [cohortError, setCohortError] = useState<string | null>(null);
+  const [isLoadingLearners, setIsLoadingLearners] = useState(false);
+  const [learnersError, setLearnersError] = useState<string | null>(null);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(cohort?.enterpriseId);
@@ -85,34 +92,24 @@ const Kiosk = () => {
 
   // Fetch cohort details for branding and course lookup
   useEffect(() => {
-    const fetchCohort = async () => {
+    if (!cohortId) return;
+    const loadCohort = async () => {
+      setIsLoadingCohort(true);
       try {
-        /*
-         * Expected: GET /api/kiosk/cohort/:cohortId -> { cohort: Cohort }
-         * Edge cases: 404 if cohort is missing, 500 on server error
-         */
         const res = await fetch(`/api/kiosk/cohort/${cohortId}`);
         if (!res.ok) throw new Error('Failed cohort fetch');
         const data: { cohort: Cohort } = await res.json();
         setCohort(data.cohort ?? null);
-        setError(null);
+        setCohortError(null);
       } catch (err) {
         console.error(err);
-        setError('cohort');
-        resetState();
-        toast({
-          title: 'Failed to load cohort',
-          variant: 'destructive',
-          action: (
-            <ToastAction altText="Retry" onClick={fetchCohort}>
-              Retry
-            </ToastAction>
-          ),
-        });
+        setCohortError('Failed to load cohort');
+      } finally {
+        setIsLoadingCohort(false);
       }
     };
-    fetchCohort();
-  }, [cohortId, toast]);
+    loadCohort();
+  }, [cohortId]);
 
   useEffect(() => {
     if (!token || token !== 'demo123') {
@@ -120,22 +117,51 @@ const Kiosk = () => {
     }
   }, [token, toast]);
 
+  // Fetch learners once cohort is loaded
   useEffect(() => {
+    if (cohort === null) return;
     const loadLearners = async () => {
       setIsLoadingLearners(true);
       try {
-        const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
+        const url = cohortId ? `/api/kiosk/learners/${cohortId}` : '/api/learners';
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed learners fetch');
         const data: { learners: Learner[] } = await res.json();
         setLearners(data.learners ?? []);
+        setLearnersError(null);
       } catch (err) {
         console.error(err);
-        toast({ title: 'Failed to load learners', variant: 'destructive' });
+        setLearnersError('Failed to load learners');
       } finally {
         setIsLoadingLearners(false);
       }
     };
     loadLearners();
-  }, [cohortId, toast]);
+  }, [cohort, cohortId]);
+
+  // Fetch questions for active assessment block
+  useEffect(() => {
+    const block = blocks[currentIndex];
+    if (step !== 'block' || !block || block.kind !== 'ASSESSMENT') return;
+
+    const loadQuestions = async () => {
+      setIsLoadingQuestions(true);
+      try {
+        const url = block ? `/api/kiosk/questions/${block.id}` : '/api/questions';
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed questions fetch');
+        const data: { questions: Question[] } = await res.json();
+        setQuestions(data.questions ?? []);
+        setQuestionsError(null);
+      } catch (err) {
+        console.error(err);
+        setQuestionsError('Failed to load questions');
+      } finally {
+        setIsLoadingQuestions(false);
+      }
+    };
+    loadQuestions();
+  }, [step, currentIndex, blocks]);
 
   // global timer for content/assessment blocks
   useEffect(() => {
