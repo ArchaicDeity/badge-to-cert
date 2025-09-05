@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Ladder, type Block } from '@/components/Ladder';
+import { useToast } from '@/hooks/use-toast';
 
 const CourseEditor = () => {
   const { courseId } = useParams();
@@ -12,6 +13,10 @@ const CourseEditor = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [requesting, setRequesting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   const fetchBlocks = useCallback(async () => {
     try {
@@ -37,29 +42,54 @@ const CourseEditor = () => {
   }, [id, fetchBlocks]);
 
   const requestReview = async () => {
-    const res = await fetch(`/api/courses/${id}/review`, { method: 'POST' });
-    const data = await res.json();
-    setReview(data.review);
+    if (requesting) return;
+    try {
+      setRequesting(true);
+      const res = await fetch(`/api/courses/${id}/review`, { method: 'POST' });
+      if (!res.ok) throw new Error('Request failed');
+      const data = await res.json();
+      setReview(data.review);
+    } catch {
+      toast({ title: 'Failed to request review', variant: 'destructive' });
+    } finally {
+      setRequesting(false);
+    }
   };
 
   const approve = async () => {
-    if (!review) return;
-    await fetch(`/api/reviews/${review.id}/approve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes }),
-    });
-    setReview({ ...review, status: 'APPROVED', notes });
+    if (!review || approving) return;
+    try {
+      setApproving(true);
+      const res = await fetch(`/api/reviews/${review.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      if (!res.ok) throw new Error('Approve failed');
+      setReview({ ...review, status: 'APPROVED', notes });
+    } catch {
+      toast({ title: 'Failed to approve review', variant: 'destructive' });
+    } finally {
+      setApproving(false);
+    }
   };
 
   const reject = async () => {
-    if (!review) return;
-    await fetch(`/api/reviews/${review.id}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes }),
-    });
-    setReview({ ...review, status: 'REJECTED', notes });
+    if (!review || rejecting) return;
+    try {
+      setRejecting(true);
+      const res = await fetch(`/api/reviews/${review.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      if (!res.ok) throw new Error('Reject failed');
+      setReview({ ...review, status: 'REJECTED', notes });
+    } catch {
+      toast({ title: 'Failed to reject review', variant: 'destructive' });
+    } finally {
+      setRejecting(false);
+    }
   };
 
   return (
@@ -76,7 +106,9 @@ const CourseEditor = () => {
         />
       )}
       {!review || review.status !== 'OPEN' ? (
-        <Button onClick={requestReview}>Request Review</Button>
+        <Button onClick={requestReview} disabled={requesting}>
+          {requesting ? 'Requesting...' : 'Request Review'}
+        </Button>
       ) : (
         <div className="space-y-2">
           <Textarea
@@ -85,9 +117,11 @@ const CourseEditor = () => {
             placeholder="Reviewer notes"
           />
           <div className="flex gap-2">
-            <Button onClick={approve}>Approve</Button>
-            <Button variant="destructive" onClick={reject}>
-              Reject
+            <Button onClick={approve} disabled={approving}>
+              {approving ? 'Approving...' : 'Approve'}
+            </Button>
+            <Button variant="destructive" onClick={reject} disabled={rejecting}>
+              {rejecting ? 'Rejecting...' : 'Reject'}
             </Button>
           </div>
         </div>
