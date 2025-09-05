@@ -115,3 +115,7 @@ MCQ,What is 2+2?,"1|2|3|4",3,,Example explanation,math
 ```
 
 `choices` values should be separated by `|`.
+
+## Kiosk Course API
+
+`GET /api/kiosk/course/:courseId` returns blocks for a published course. The `courseId` parameter must be a valid number; non-numeric values result in a `400 Invalid courseId` response.
