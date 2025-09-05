@@ -391,6 +391,7 @@ const Kiosk = () => {
   const submitBadge = async () => {
     setLearnerError(null);
     setFetchingLearner(true);
+    setIsSubmitting(true);
     try {
       const learner = await fetchLearner(badgeId.toUpperCase());
       if (!learner) {
@@ -409,6 +410,7 @@ const Kiosk = () => {
       toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
     } finally {
       setFetchingLearner(false);
+      setIsSubmitting(false);
     }
   };
 
