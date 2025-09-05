@@ -30,6 +30,7 @@ export const courseBlocks = sqliteTable('course_blocks', {
   title: text('title').notNull(),
   position: integer('position').notNull(),
   isMandatory: integer('is_mandatory', { mode: 'boolean' }).notNull().default(1),
+  disabled: integer('disabled', { mode: 'boolean' }).notNull().default(0),
   configJson: text('config_json'),
 });
 
