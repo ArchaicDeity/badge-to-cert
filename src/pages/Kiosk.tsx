@@ -66,9 +66,14 @@ const Kiosk = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
   const [cohort, setCohort] = useState<Cohort | null>(null);
+  const [isLoadingCohort, setIsLoadingCohort] = useState(false);
+  const [cohortError, setCohortError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isLoadingLearners, setIsLoadingLearners] = useState(false);
+  const [learnersError, setLearnersError] = useState<string | null>(null);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
@@ -86,6 +91,8 @@ const Kiosk = () => {
   // Fetch cohort details for branding and course lookup
   useEffect(() => {
     const fetchCohort = async () => {
+      setIsLoadingCohort(true);
+      setCohortError(null);
       try {
         /*
          * Expected: GET /api/kiosk/cohort/:cohortId -> { cohort: Cohort }
@@ -95,10 +102,9 @@ const Kiosk = () => {
         if (!res.ok) throw new Error('Failed cohort fetch');
         const data: { cohort: Cohort } = await res.json();
         setCohort(data.cohort ?? null);
-        setError(null);
       } catch (err) {
         console.error(err);
-        setError('cohort');
+        setCohortError(err instanceof Error ? err.message : String(err));
         resetState();
         toast({
           title: 'Failed to load cohort',
@@ -109,6 +115,8 @@ const Kiosk = () => {
             </ToastAction>
           ),
         });
+      } finally {
+        setIsLoadingCohort(false);
       }
     };
     fetchCohort();
@@ -123,12 +131,15 @@ const Kiosk = () => {
   useEffect(() => {
     const loadLearners = async () => {
       setIsLoadingLearners(true);
+      setLearnersError(null);
       try {
         const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
+        if (!res.ok) throw new Error('Failed learners fetch');
         const data: { learners: Learner[] } = await res.json();
         setLearners(data.learners ?? []);
       } catch (err) {
         console.error(err);
+        setLearnersError(err instanceof Error ? err.message : String(err));
         toast({ title: 'Failed to load learners', variant: 'destructive' });
       } finally {
         setIsLoadingLearners(false);
@@ -213,6 +224,8 @@ const Kiosk = () => {
         ),
       });
       return null;
+    }
+  };
 
   const buildQuestions = (cfg: BlockConfig): Question[] => {
     const count = cfg.numQuestions ?? questions.length;
@@ -253,6 +266,8 @@ const Kiosk = () => {
   };
 
   const fetchQuestions = async (blockId: number, index: number): Promise<Question[] | null> => {
+    setIsLoadingQuestions(true);
+    setQuestionsError(null);
     try {
       /*
        * Expected: GET /api/kiosk/questions/:blockId -> { questions: Question[] }
@@ -262,11 +277,10 @@ const Kiosk = () => {
       if (!res.ok) throw new Error('Failed question fetch');
       const data: { questions: Question[] } = await res.json();
       if (!data.questions?.length) throw new Error('No questions');
-      setError(null);
       return data.questions;
     } catch (err) {
       console.error(err);
-      setError('questions');
+      setQuestionsError(err instanceof Error ? err.message : 'Failed to load questions');
       resetState();
       toast({
         title: 'Failed to load questions',
@@ -278,18 +292,26 @@ const Kiosk = () => {
         ),
       });
       return null;
+    } finally {
+      setIsLoadingQuestions(false);
     }
   };
 
   const loadQuestions = async (blockId: number) => {
+    setIsLoadingQuestions(true);
+    setQuestionsError(null);
     try {
       const res = await fetch(`/api/kiosk/questions/${blockId}`);
+      if (!res.ok) throw new Error('Failed question fetch');
       const data: { questions: Question[] } = await res.json();
       setQuestions(data.questions ?? []);
     } catch (err) {
       console.error(err);
+      setQuestionsError(err instanceof Error ? err.message : 'Failed to load questions');
       toast({ title: 'Failed to load questions', variant: 'destructive' });
       setQuestions([]);
+    } finally {
+      setIsLoadingQuestions(false);
     }
   };
 
@@ -302,6 +324,7 @@ const Kiosk = () => {
     setCurrentIndex(index);
     const block = blocks[index];
     if (block.kind === 'ASSESSMENT') {
+      const cfg = parseConfig(block);
       const qs = await fetchQuestions(block.id, index);
       if (!qs) return;
       setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
@@ -320,57 +343,39 @@ const Kiosk = () => {
 
   const [fetchingLearner, setFetchingLearner] = useState(false);
   const [learnerError, setLearnerError] = useState<string | null>(null);
-  const submitBadge = async () => {
-    const learner = await fetchLearner(badgeId.toUpperCase());
-    if (!learner) return;
-    setCurrentLearner(learner);
-    const ok = await loadBlocks(cohortId ?? '0');
-    if (!ok) return;
-    await startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-  const handleBadgeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
 
+  const submitBadge = async () => {
     setLearnerError(null);
     setFetchingLearner(true);
-    const learner = mockLearners.find((l) => l.badgeId === badgeId.toUpperCase());
-
-    setIsSubmitting(true);
-    const learner = learners.find((l) => l.badgeId === badgeId.toUpperCase());
-    if (!learner) {
-      setLearnerError('Badge not found. Please check your badge ID and try again.');
-      setFetchingLearner(false);
-      toast({
-        title: 'Badge Not Found',
-        description: 'Please check your badge ID and try again',
-        variant: 'destructive',
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    setCurrentLearner(learner);
-    await loadBlocks(cohortId ?? '0');
-    startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-    setFetchingLearner(false);
-
-    await startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
     try {
+      const learner = await fetchLearner(badgeId.toUpperCase());
+      if (!learner) {
+        setLearnerError('Badge not found. Please check your badge ID and try again.');
+        toast({
+          title: 'Badge Not Found',
+          description: 'Please check your badge ID and try again',
+          variant: 'destructive',
+        });
+        return;
+      }
       setCurrentLearner(learner);
-      await loadBlocks(cohortId ?? '0');
-      startBlock(0);
+      const ok = await loadBlocks(cohortId ?? '0');
+      if (!ok) return;
+      await startBlock(0);
       toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
     } finally {
-      setIsSubmitting(false);
+      setFetchingLearner(false);
     }
-
   };
 
   const handleBadgeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitBadge();
+    setIsSubmitting(true);
+    try {
+      await submitBadge();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleContentContinue = () => {
