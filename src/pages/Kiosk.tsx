@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,138 +6,232 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Clock, User, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { mockQuestions, mockLearners, type Question } from '@/lib/mockData';
+import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
+import { mockLearners, mockQuestions, type Question, type Learner } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 
-type KioskStep = 'badge-input' | 'quiz' | 'complete';
+type KioskStep = 'badge-input' | 'block' | 'complete';
+
+type CourseBlock = {
+  id: number;
+  kind: 'CONTENT' | 'ASSESSMENT';
+  title: string;
+  position: number;
+  isMandatory: boolean;
+  configJson?: string | null;
+};
+
+interface BlockConfig {
+  durationMinutes?: number;
+  timeLimitMinutes?: number;
+  numQuestions?: number;
+  passMarkPercent?: number;
+  retakeCooldownMinutes?: number;
+  maxAttempts?: number;
+  shuffleQuestions?: boolean;
+  htmlBody?: string;
+}
+
+interface QuizState {
+  questions: Question[];
+  answers: number[];
+  result?: { score: number; passed: boolean };
+  attempts: number;
+  retakeAvailableAt?: number;
+}
 
 const Kiosk = () => {
   const { cohortId } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
   const { toast } = useToast();
-  
+
   const [step, setStep] = useState<KioskStep>('badge-input');
   const [badgeId, setBadgeId] = useState('');
-  const [currentLearner, setCurrentLearner] = useState<any>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
-  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes
-  const [quizResult, setQuizResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const [currentLearner, setCurrentLearner] = useState<Learner | null>(null);
+  const [blocks, setBlocks] = useState<CourseBlock[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [timer, setTimer] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
 
-  // Validate kiosk token
+  // validate kiosk token
   useEffect(() => {
     if (!token || token !== 'demo123') {
-      toast({
-        title: "Access Denied",
-        description: "Invalid kiosk token",
-        variant: "destructive",
-      });
+      toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
     }
   }, [token, toast]);
 
-  // Timer for quiz
+  // global timer for content/assessment blocks
   useEffect(() => {
-    if (step === 'quiz' && timeRemaining > 0) {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            handleSubmitQuiz();
-            return 0;
-          }
-          return prev - 1;
-        });
+    if (step === 'block' && timer > 0) {
+      const t = setInterval(() => {
+        setTimer((s) => (s > 0 ? s - 1 : 0));
       }, 1000);
-      
-      return () => clearInterval(timer);
+      return () => clearInterval(t);
     }
-  }, [step, timeRemaining]);
+  }, [step, timer]);
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  // retake cooldown timer
+  useEffect(() => {
+    if (quiz.retakeAvailableAt) {
+      const id = setInterval(() => {
+        if (Date.now() >= quiz.retakeAvailableAt!) {
+          const cfg = parseConfig(blocks[currentIndex]);
+          const qs = buildQuestions(cfg);
+          setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: quiz.attempts });
+          setQuestionIndex(0);
+          setTimer((cfg.timeLimitMinutes ?? 0) * 60);
+          setQuiz((prev) => ({ ...prev, retakeAvailableAt: undefined }));
+        }
+      }, 1000);
+      return () => clearInterval(id);
+    }
+  }, [quiz.retakeAvailableAt, quiz.attempts, blocks, currentIndex]);
+
+  const parseConfig = (block: CourseBlock): BlockConfig => {
+    try {
+      return block.configJson ? JSON.parse(block.configJson) : {};
+    } catch {
+      return {};
+    }
   };
 
-  const handleBadgeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const learner = mockLearners.find(l => l.badgeId === badgeId.toUpperCase());
-    
-    if (!learner) {
-      toast({
-        title: "Badge Not Found",
-        description: "Please check your badge ID and try again",
-        variant: "destructive",
-      });
+  const buildQuestions = (cfg: BlockConfig): Question[] => {
+    const count = cfg.numQuestions ?? mockQuestions.length;
+    const shuffled = [...mockQuestions];
+    if (cfg.shuffleQuestions) {
+      shuffled.sort(() => Math.random() - 0.5);
+    }
+    return shuffled.slice(0, count);
+  };
+
+  const loadBlocks = async (courseId: string) => {
+    try {
+      const res = await fetch(`/api/kiosk/course/${courseId}`);
+      const data: { blocks: CourseBlock[] } = await res.json();
+      setBlocks(data.blocks ?? []);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Failed to load course', variant: 'destructive' });
+    }
+  };
+
+  const startBlock = (index: number) => {
+    if (index >= blocks.length) {
+      setStep('complete');
       return;
     }
 
+    setCurrentIndex(index);
+    const block = blocks[index];
+    const cfg = parseConfig(block);
+
+    if (block.kind === 'ASSESSMENT') {
+      const qs = buildQuestions(cfg);
+      setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
+      setQuestionIndex(0);
+      setTimer((cfg.timeLimitMinutes ?? 0) * 60);
+    } else {
+      setTimer((cfg.durationMinutes ?? 0) * 60);
+    }
+
+    setStep('block');
+  };
+
+  const handleBadgeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const learner = mockLearners.find((l) => l.badgeId === badgeId.toUpperCase());
+    if (!learner) {
+      toast({
+        title: 'Badge Not Found',
+        description: 'Please check your badge ID and try again',
+        variant: 'destructive',
+      });
+      return;
+    }
     setCurrentLearner(learner);
-    
-    // Shuffle and select 20 questions
-    const shuffled = [...mockQuestions].sort(() => Math.random() - 0.5).slice(0, Math.min(20, mockQuestions.length));
-    setQuestions(shuffled);
-    setAnswers(new Array(shuffled.length).fill(-1));
-    setStep('quiz');
-    
-    toast({
-      title: "Welcome!",
-      description: `Starting quiz for ${learner.name}`,
-    });
+    await loadBlocks(cohortId ?? '0');
+    startBlock(0);
+    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
   };
 
-  const handleAnswerSelect = (answerIndex: number) => {
-    const newAnswers = [...answers];
-    newAnswers[currentQuestionIndex] = answerIndex;
-    setAnswers(newAnswers);
+  const handleContentContinue = () => {
+    completeBlock('COMPLETED');
   };
 
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+  const updateProgress = async (status: 'COMPLETED' | 'FAILED', score?: number) => {
+    const block = blocks[currentIndex];
+    try {
+      await fetch('/api/enrollment/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blockId: block.id, status, score }),
+      });
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const handlePrevQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+  const completeBlock = async (status: 'COMPLETED' | 'FAILED', score?: number) => {
+    await updateProgress(status, score);
+    const block = blocks[currentIndex];
+    if (status === 'COMPLETED' || !block.isMandatory) {
+      startBlock(currentIndex + 1);
+    } else {
+      setStep('complete');
     }
+  };
+
+  const handleAnswerSelect = (answer: number) => {
+    const newAnswers = [...quiz.answers];
+    newAnswers[questionIndex] = answer;
+    setQuiz((prev) => ({ ...prev, answers: newAnswers }));
   };
 
   const handleSubmitQuiz = () => {
-    let correctAnswers = 0;
-    
-    questions.forEach((question, index) => {
-      if (answers[index] === question.correctIndex) {
-        correctAnswers++;
+    let correct = 0;
+    quiz.questions.forEach((q, i) => {
+      if (quiz.answers[i] === q.correctIndex) correct++;
+    });
+    const score = Math.round((correct / quiz.questions.length) * 100);
+    const cfg = parseConfig(blocks[currentIndex]);
+    const passed = score >= (cfg.passMarkPercent ?? 80);
+    const attempts = quiz.attempts + 1;
+    if (passed) {
+      setQuiz((prev) => ({ ...prev, result: { score, passed }, attempts }));
+      completeBlock('COMPLETED', score);
+    } else {
+      if (attempts < (cfg.maxAttempts ?? 1)) {
+        const cooldown = (cfg.retakeCooldownMinutes ?? 10) * 60;
+        setQuiz({
+          ...quiz,
+          result: { score, passed },
+          attempts,
+          retakeAvailableAt: Date.now() + cooldown * 1000,
+        });
+      } else {
+        setQuiz((prev) => ({ ...prev, result: { score, passed }, attempts }));
+        completeBlock('FAILED', score);
       }
-    });
-    
-    const score = Math.round((correctAnswers / questions.length) * 100);
-    const passed = score >= 80;
-    
-    setQuizResult({ score, passed });
-    setStep('complete');
-    
-    toast({
-      title: passed ? "Quiz Passed!" : "Quiz Not Passed",
-      description: `Score: ${score}% (${correctAnswers}/${questions.length} correct)`,
-      variant: passed ? "default" : "destructive",
-    });
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   const resetKiosk = () => {
     setStep('badge-input');
     setBadgeId('');
     setCurrentLearner(null);
-    setQuestions([]);
-    setCurrentQuestionIndex(0);
-    setAnswers([]);
-    setTimeRemaining(30 * 60);
-    setQuizResult(null);
+    setBlocks([]);
+    setCurrentIndex(0);
+    setTimer(0);
+    setQuestionIndex(0);
+    setQuiz({ questions: [], answers: [], attempts: 0 });
   };
 
   if (!token || token !== 'demo123') {
@@ -154,14 +248,14 @@ const Kiosk = () => {
     );
   }
 
+  const currentBlock = blocks[currentIndex];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-      {/* Kiosk Header */}
       <div className="bg-primary text-primary-foreground p-4 text-center">
         <h1 className="text-2xl font-bold">SASOL First Aid Training</h1>
         <p className="text-primary-foreground/80">Theory Assessment Kiosk</p>
       </div>
-
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {step === 'badge-input' && (
           <Card className="shadow-xl">
@@ -170,14 +264,14 @@ const Kiosk = () => {
                 <User className="h-8 w-8 text-primary" />
               </div>
               <CardTitle className="text-2xl">Badge Check-in</CardTitle>
-              <CardDescription>
-                Scan or enter your badge ID to begin the theory assessment
-              </CardDescription>
+              <CardDescription>Scan or enter your badge ID to begin the assessment</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleBadgeSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="badgeId" className="text-lg">Badge ID</Label>
+                  <Label htmlFor="badgeId" className="text-lg">
+                    Badge ID
+                  </Label>
                   <Input
                     id="badgeId"
                     type="text"
@@ -190,16 +284,16 @@ const Kiosk = () => {
                   />
                 </div>
                 <Button type="submit" size="lg" className="w-full text-lg py-6">
-                  Start Assessment
+                  Start
                 </Button>
               </form>
-              
+
               <div className="mt-8 p-4 bg-muted/50 rounded-lg">
                 <h3 className="font-semibold mb-2">Demo Badge IDs:</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  {mockLearners.map(learner => (
-                    <div key={learner.id} className="font-mono">
-                      {learner.badgeId} - {learner.name}
+                  {mockLearners.map((l) => (
+                    <div key={l.id} className="font-mono">
+                      {l.badgeId} - {l.name}
                     </div>
                   ))}
                 </div>
@@ -208,9 +302,30 @@ const Kiosk = () => {
           </Card>
         )}
 
-        {step === 'quiz' && (
+        {step === 'block' && currentBlock && currentBlock.kind === 'CONTENT' && (
+          <Card className="shadow-xl">
+            <CardHeader>
+              <CardTitle>{currentBlock.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="prose max-w-none mb-8"
+                dangerouslySetInnerHTML={{ __html: parseConfig(currentBlock).htmlBody ?? '' }}
+              />
+              {timer > 0 && (
+                <div className="mb-4 text-center font-mono">
+                  <Clock className="inline h-4 w-4 mr-1" /> {formatTime(timer)}
+                </div>
+              )}
+              <Button onClick={handleContentContinue} disabled={timer > 0} className="w-full">
+                Continue
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 'block' && currentBlock && currentBlock.kind === 'ASSESSMENT' && (
           <div className="space-y-6">
-            {/* Quiz Header */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -223,48 +338,42 @@ const Kiosk = () => {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <div className="text-sm text-muted-foreground">Time Remaining</div>
-                      <div className={`text-lg font-mono font-bold ${timeRemaining < 300 ? 'text-destructive' : 'text-foreground'}`}>
+                      <div className={`text-lg font-mono font-bold ${timer < 300 ? 'text-destructive' : 'text-foreground'}`}>
                         <Clock className="inline h-4 w-4 mr-1" />
-                        {formatTime(timeRemaining)}
+                        {formatTime(timer)}
                       </div>
                     </div>
                     <Badge variant="outline">
-                      Question {currentQuestionIndex + 1} of {questions.length}
+                      Question {questionIndex + 1} of {quiz.questions.length}
                     </Badge>
                   </div>
                 </div>
-                <Progress 
-                  value={((currentQuestionIndex + 1) / questions.length) * 100} 
-                  className="mt-4"
-                />
+                <Progress value={((questionIndex + 1) / quiz.questions.length) * 100} className="mt-4" />
               </CardContent>
             </Card>
 
-            {/* Current Question */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-xl">
-                  {questions[currentQuestionIndex]?.body}
-                </CardTitle>
+                <CardTitle className="text-xl">{quiz.questions[questionIndex]?.body}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {questions[currentQuestionIndex]?.choices.map((choice, index) => (
+                  {quiz.questions[questionIndex]?.choices.map((choice, index) => (
                     <button
                       key={index}
                       onClick={() => handleAnswerSelect(index)}
                       className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
-                        answers[currentQuestionIndex] === index
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border'
+                        quiz.answers[questionIndex] === index ? 'border-primary bg-primary/5' : 'border-border'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                          answers[currentQuestionIndex] === index
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-muted-foreground'
-                        }`}>
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            quiz.answers[questionIndex] === index
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground'
+                          }`}
+                        >
                           {String.fromCharCode(65 + index)}
                         </div>
                         <span className="text-lg">{choice}</span>
@@ -274,73 +383,64 @@ const Kiosk = () => {
                 </div>
 
                 <div className="flex justify-between mt-8">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevQuestion}
-                    disabled={currentQuestionIndex === 0}
-                  >
+                  <Button variant="outline" onClick={() => setQuestionIndex((i) => i - 1)} disabled={questionIndex === 0}>
                     Previous
                   </Button>
-                  
-                  {currentQuestionIndex === questions.length - 1 ? (
+                  {questionIndex === quiz.questions.length - 1 ? (
                     <Button
                       onClick={handleSubmitQuiz}
-                      disabled={answers.some(a => a === -1)}
+                      disabled={quiz.answers.some((a) => a === -1)}
                       className="bg-success hover:bg-success/90"
                     >
                       Submit Quiz
                     </Button>
                   ) : (
-                    <Button
-                      onClick={handleNextQuestion}
-                      disabled={answers[currentQuestionIndex] === -1}
-                    >
+                    <Button onClick={() => setQuestionIndex((i) => i + 1)} disabled={quiz.answers[questionIndex] === -1}>
                       Next Question
                     </Button>
                   )}
                 </div>
               </CardContent>
             </Card>
+
+            {quiz.result && quiz.result.passed === false && quiz.retakeAvailableAt && (
+              <Card className="bg-destructive/10">
+                <CardContent className="p-4 text-center">
+                  <p className="mb-2 font-semibold text-destructive">Attempt failed.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Next attempt available in {formatTime(Math.max(0, Math.ceil((quiz.retakeAvailableAt - Date.now()) / 1000)))}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
-        {step === 'complete' && quizResult && (
+        {step === 'complete' && (
           <Card className="shadow-xl">
             <CardHeader className="text-center">
-              <div className={`mx-auto h-16 w-16 rounded-full flex items-center justify-center mb-4 ${
-                quizResult.passed ? 'bg-success/10' : 'bg-destructive/10'
-              }`}>
-                {quizResult.passed ? (
+              <div
+                className={`mx-auto h-16 w-16 rounded-full flex items-center justify-center mb-4 ${
+                  quiz.result?.passed ? 'bg-success/10' : 'bg-destructive/10'
+                }`}
+              >
+                {quiz.result?.passed ? (
                   <CheckCircle2 className="h-8 w-8 text-success" />
                 ) : (
                   <XCircle className="h-8 w-8 text-destructive" />
                 )}
               </div>
               <CardTitle className="text-2xl">
-                {quizResult.passed ? 'Theory Assessment Passed!' : 'Theory Assessment Not Passed'}
+                {quiz.result?.passed ? 'Assessment Passed!' : 'Assessment Complete'}
               </CardTitle>
-              <CardDescription>
-                Your score: {quizResult.score}% ({Math.round((quizResult.score / 100) * questions.length)}/{questions.length} correct)
-              </CardDescription>
+              {quiz.result && (
+                <CardDescription>
+                  Score: {quiz.result.score}% ({quiz.result.passed ? 'Passed' : 'Failed'})
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               <div className="text-center space-y-4">
-                {quizResult.passed ? (
-                  <div className="p-4 bg-success/10 rounded-lg">
-                    <p className="text-success-foreground">
-                      <strong>Congratulations!</strong> You may now proceed to the practical assessment.
-                      Please wait for the assessor to call you.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-destructive/10 rounded-lg">
-                    <p className="text-destructive-foreground">
-                      <strong>Theory assessment not passed.</strong> You need 80% or higher to proceed.
-                      Please speak with the instructor for additional training.
-                    </p>
-                  </div>
-                )}
-
                 <Button onClick={resetKiosk} variant="outline" size="lg">
                   Next Learner
                 </Button>
@@ -354,3 +454,4 @@ const Kiosk = () => {
 };
 
 export default Kiosk;
+
