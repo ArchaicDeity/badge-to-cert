@@ -1,8 +1,5 @@
-
 import type { Request, Response } from 'express';
-import { db } from '@/db'; // TODO: implement database connection
-import type { NextApiRequest, NextApiResponse } from 'next';
-import db from '@/db';
+import { db } from '@/db';
 import { courseBlocks } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
