@@ -1,9 +1,12 @@
+
+import type { Request, Response } from 'express';
+import { db } from '@/db'; // TODO: implement database connection
 import type { NextApiRequest, NextApiResponse } from 'next';
 import db from '@/db';
 import { courseBlocks } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
