@@ -1,172 +1,76 @@
-import { useState, type FormEvent } from 'react';
-import { useAuth } from '@/lib/use-auth';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useAuth } from '@/lib/auth';
+import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
-import {
-  Users,
-  Calendar,
-  Upload,
-  Download,
-  FileText,
+import { 
+  Users, 
+  Calendar, 
+  Upload, 
+  Download, 
+  FileText, 
   Shield,
   LogOut,
   Plus,
-  BarChart3,
-  Palette
+  BarChart3
 } from 'lucide-react';
-import {
-  mockCohorts,
-  getCohortEnrollments,
-  getEnterpriseById,
-  getCoursesForEnterprise,
-} from '@/lib/mockData';
+import { mockCohorts, getCohortEnrollments } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
-import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [selectedCohort] = useState(mockCohorts[0]);
-  const enterprise = getEnterpriseById(selectedCohort.enterpriseId);
-  useEnterpriseBranding(enterprise);
-  const courses = getCoursesForEnterprise(selectedCohort.enterpriseId);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [rosterOpen, setRosterOpen] = useState(false);
-  const [newCohort, setNewCohort] = useState({
-    date: '',
-    venue: '',
-    instructor: '',
-    assessor: '',
-  });
-  const [rosterFile, setRosterFile] = useState<File | null>(null);
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
   const enrollments = getCohortEnrollments(selectedCohort.id);
-
-  const stats = enrollments.reduce(
-    (acc, e) => {
-      acc.total += 1;
-      switch (e.status) {
-        case 'NOT_STARTED':
-          acc.notStarted += 1;
-          break;
-        case 'THEORY_PASS':
-          acc.theoryPass += 1;
-          break;
-        case 'PRACTICAL_PASS':
-          acc.certified += 1;
-          break;
-        case 'NYC':
-          acc.nyc += 1;
-          break;
-      }
-      return acc;
-    },
-    { total: 0, notStarted: 0, theoryPass: 0, certified: 0, nyc: 0 }
-  );
-
-  const handleUploadRoster = () => setRosterOpen(true);
-
-  const handleCreateCohort = () => setCreateOpen(true);
-
-  const submitCreateCohort = async (e: FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/cohorts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newCohort, enterpriseId: selectedCohort.enterpriseId }),
-      });
-      if (!res.ok) throw new Error();
-      toast({ title: 'Cohort Created', description: 'New cohort has been saved.' });
-      setCreateOpen(false);
-      setNewCohort({ date: '', venue: '', instructor: '', assessor: '' });
-    } catch {
-      toast({ title: 'Error', description: 'Failed to create cohort', variant: 'destructive' });
-    }
+  
+  const stats = {
+    total: enrollments.length,
+    notStarted: enrollments.filter(e => e.status === 'NOT_STARTED').length,
+    theoryPass: enrollments.filter(e => e.status === 'THEORY_PASS').length,
+    certified: enrollments.filter(e => e.status === 'PRACTICAL_PASS').length,
+    nyc: enrollments.filter(e => e.status === 'NYC').length,
   };
 
-  const submitRosterUpload = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!rosterFile) return;
-    try {
-      const formData = new FormData();
-      formData.append('file', rosterFile);
-      const res = await fetch(`/api/cohorts/${selectedCohort.id}/roster`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) throw new Error();
-      toast({ title: 'Roster Uploaded', description: 'Learner roster has been uploaded.' });
-      setRosterOpen(false);
-      setRosterFile(null);
-    } catch {
-      toast({ title: 'Error', description: 'Failed to upload roster', variant: 'destructive' });
-    }
+  const handleUploadRoster = () => {
+    toast({
+      title: "Feature Demo",
+      description: "CSV roster upload would be implemented here",
+    });
   };
 
-  const handleDownloadResults = async () => {
-    try {
-      const res = await fetch(`/api/cohorts/${selectedCohort.id}/results-pack`);
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const filename = res.headers
-        .get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') ||
-        'results-pack.zip';
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast({ title: 'Download Ready', description: 'Results pack downloaded.' });
-    } catch {
-      toast({ title: 'Download Failed', description: 'Could not download results pack', variant: 'destructive' });
-    }
+  const handleCreateCohort = () => {
+    toast({
+      title: "Feature Demo", 
+      description: "Create new cohort form would open here",
+    });
+  };
+
+  const handleDownloadResults = () => {
+    toast({
+      title: "Downloading Results",
+      description: "CSV and certificate ZIP would be generated here",
+    });
   };
 
   return (
-    <>
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {enterprise?.brandLogoPath ? (
-              <img
-                src={enterprise.brandLogoPath}
-                alt={enterprise.name}
-                className="h-10 w-10 object-contain rounded-lg"
-              />
-            ) : (
-              <div className="h-10 w-10 bg-gradient-to-br from-primary to-primary-glow rounded-lg flex items-center justify-center">
-                <Shield className="h-5 w-5 text-primary-foreground" />
-              </div>
-            )}
+            <div className="h-10 w-10 bg-gradient-to-br from-primary to-primary-glow rounded-lg flex items-center justify-center">
+              <Shield className="h-5 w-5 text-primary-foreground" />
+            </div>
             <div>
-              <h1 className="text-xl font-semibold">{enterprise?.name || 'First Aid Training'}</h1>
-              <p className="text-sm text-muted-foreground">
-                {enterprise?.brandLoginMessage || 'Training Management'}
-              </p>
+              <h1 className="text-xl font-semibold">First Aid Training</h1>
+              <p className="text-sm text-muted-foreground">SASOL Safety Management</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -186,8 +90,8 @@ const Dashboard = () => {
 
       <div className="container mx-auto px-4 py-8 space-y-8">
         {/* Quick Actions */}
-        {['ADMIN', 'ENTERPRISE'].includes(user.role) && (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {user.role === 'ADMIN' && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer" onClick={handleCreateCohort}>
               <CardContent className="p-6 text-center">
                 <Plus className="h-8 w-8 text-primary mx-auto mb-2" />
@@ -217,17 +121,6 @@ const Dashboard = () => {
                 <FileText className="h-8 w-8 text-accent mx-auto mb-2" />
                 <h3 className="font-semibold">Certificate Register</h3>
                 <p className="text-sm text-muted-foreground">Manage issued certificates</p>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="border-secondary/20 hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => navigate(`/enterprise/${selectedCohort.enterpriseId}`)}
-            >
-              <CardContent className="p-6 text-center">
-                <Palette className="h-8 w-8 text-secondary mx-auto mb-2" />
-                <h3 className="font-semibold">Enterprise Branding</h3>
-                <p className="text-sm text-muted-foreground">Logo & colors</p>
               </CardContent>
             </Card>
           </div>
@@ -266,21 +159,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
-
-        {courses.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Courses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="list-disc pl-5 space-y-1">
-                {courses.map(c => (
-                  <li key={c.id}>{c.title}</li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Today's Cohort */}
         <Card>
@@ -336,7 +214,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {enrollment.theoryScore !== undefined && (
+                    {enrollment.theoryScore && (
                       <div className="text-sm">
                         Theory: <span className="font-medium">{enrollment.theoryScore}%</span>
                       </div>
@@ -350,81 +228,6 @@ const Dashboard = () => {
         </Card>
       </div>
     </div>
-
-    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create Cohort</DialogTitle>
-          <DialogDescription>Set up a new training session.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submitCreateCohort} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cohort-date">Date</Label>
-            <Input
-              id="cohort-date"
-              type="date"
-              value={newCohort.date}
-              onChange={(e) => setNewCohort({ ...newCohort, date: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cohort-venue">Venue</Label>
-            <Input
-              id="cohort-venue"
-              value={newCohort.venue}
-              onChange={(e) => setNewCohort({ ...newCohort, venue: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cohort-instructor">Instructor</Label>
-            <Input
-              id="cohort-instructor"
-              value={newCohort.instructor}
-              onChange={(e) => setNewCohort({ ...newCohort, instructor: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cohort-assessor">Assessor</Label>
-            <Input
-              id="cohort-assessor"
-              value={newCohort.assessor}
-              onChange={(e) => setNewCohort({ ...newCohort, assessor: e.target.value })}
-              required
-            />
-          </div>
-          <DialogFooter>
-            <Button type="submit">Create</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog open={rosterOpen} onOpenChange={setRosterOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Upload Roster</DialogTitle>
-          <DialogDescription>Upload a CSV roster for this cohort.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submitRosterUpload} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="roster-file">Roster CSV</Label>
-            <Input
-              id="roster-file"
-              type="file"
-              accept=".csv"
-              onChange={(e) => setRosterFile(e.target.files?.[0] || null)}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={!rosterFile}>Upload</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-    </>
   );
 };
 

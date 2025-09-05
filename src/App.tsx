@@ -3,16 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/lib/auth";
-import { useAuth } from "@/lib/use-auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Kiosk from "./pages/Kiosk";
 import Assessor from "./pages/Assessor";
-import CourseEditor from "./pages/CourseEditor";
 import Verify from "./pages/Verify";
 import NotFound from "./pages/NotFound";
-import Enterprise from "./pages/Enterprise";
 
 const queryClient = new QueryClient();
 
@@ -40,7 +38,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/login" element={<Login />} />
@@ -49,24 +47,8 @@ const App = () => (
                 <Dashboard />
               </ProtectedRoute>
             } />
-            <Route
-              path="/courses/:courseId/edit"
-              element={
-                <ProtectedRoute>
-                  <CourseEditor />
-                </ProtectedRoute>
-              }
-            />
             <Route path="/kiosk/:cohortId" element={<Kiosk />} />
             <Route path="/assessor/:cohortId" element={<Assessor />} />
-            <Route
-              path="/enterprise/:enterpriseId"
-              element={
-                <ProtectedRoute>
-                  <Enterprise />
-                </ProtectedRoute>
-              }
-            />
             <Route path="/verify/:certificateCode" element={<Verify />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

@@ -1,8 +1,0 @@
-{
-  "name": "dev-server",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite --config ../vite.config.ts"
-  }
-}
