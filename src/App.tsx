@@ -11,6 +11,7 @@ import Kiosk from "./pages/Kiosk";
 import Assessor from "./pages/Assessor";
 import Verify from "./pages/Verify";
 import NotFound from "./pages/NotFound";
+import Courses from "@/frontend/routes/courses";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,14 @@ const App = () => (
                 <Dashboard />
               </ProtectedRoute>
             } />
+            <Route
+              path="/admin/courses"
+              element={
+                <ProtectedRoute>
+                  <Courses />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/kiosk/:cohortId" element={<Kiosk />} />
             <Route path="/assessor/:cohortId" element={<Assessor />} />
             <Route path="/verify/:certificateCode" element={<Verify />} />
