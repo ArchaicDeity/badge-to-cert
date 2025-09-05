@@ -4,8 +4,6 @@ import { vi } from 'vitest';
 
 import Dashboard from '@/pages/Dashboard';
 import { useAuth, type UserRole } from '@/lib/use-auth';
-import { type UserRole, useAuth } from '@/lib/auth';
-
 
 // Mock hooks and contexts used within Dashboard
 vi.mock('@/hooks/use-toast', () => ({
@@ -20,6 +18,25 @@ vi.mock('@/hooks/use-enterprise-branding', () => ({
 vi.mock('@/lib/use-auth', () => ({
   useAuth: vi.fn(),
 }));
+
+vi.mock('@/lib/mockData', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/mockData')>(
+    '@/lib/mockData'
+  );
+  return {
+    ...actual,
+    getCohortEnrollments: vi.fn(() => [
+      {
+        id: '1',
+        learnerId: '1',
+        cohortId: '1',
+        status: 'THEORY_PASS',
+        theoryScore: 0,
+        learner: actual.mockLearners[0],
+      },
+    ]),
+  };
+});
 
 const renderForRole = (role: UserRole) => {
   (useAuth as unknown as vi.Mock).mockReturnValue({
@@ -53,5 +70,14 @@ describe('Dashboard Quick Actions visibility', () => {
   it('hides quick actions for ASSESSOR', () => {
     renderForRole('ASSESSOR');
     expect(screen.queryByText('Create Cohort')).not.toBeInTheDocument();
+  });
+});
+
+describe('Learner theory score display', () => {
+  it('renders a 0% theory score', () => {
+    renderForRole('ADMIN');
+    expect(
+      screen.getByText((_, node) => node?.textContent === 'Theory: 0%')
+    ).toBeInTheDocument();
   });
 });
