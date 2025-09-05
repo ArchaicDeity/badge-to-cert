@@ -14,9 +14,41 @@ import {
   type Learner,
   type Cohort,
 } from '@/lib/mockData';
+import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
 import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
+
+interface Question {
+  id: string;
+  body: string;
+  choices: string[];
+  correctIndex: number;
+}
+
+interface Learner {
+  id: string;
+  name: string;
+  badgeId: string;
+}
+
+interface Cohort {
+  id: string;
+  enterpriseId: string;
+}
+
+interface Enterprise {
+  id: string;
+  name: string;
+  brandLogoPath?: string;
+  brandPrimaryColor?: string;
+  brandSecondaryColor?: string;
+}
+
+interface Course {
+  id: string;
+  title: string;
+}
 
 type KioskStep = 'badge-input' | 'block' | 'complete';
 
@@ -63,15 +95,24 @@ const Kiosk = () => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
   const [cohort, setCohort] = useState<Cohort | null>(null);
+  const [isLoadingCohort, setIsLoadingCohort] = useState(false);
+  const [cohortError, setCohortError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isLoadingLearners, setIsLoadingLearners] = useState(false);
+  const [learnersError, setLearnersError] = useState<string | null>(null);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [learnerError, setLearnerError] = useState<string | null>(null);
 
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(cohort?.enterpriseId);
+  const [enterprise, setEnterprise] = useState<Enterprise | null>(null);
+  useEnterpriseBranding(enterprise ?? undefined);
+  const [courses, setCourses] = useState<Course[]>([]);
+
 
   const resetState = () => {
     setBlocks([]);
@@ -129,6 +170,35 @@ const Kiosk = () => {
   };
 
   useEffect(() => {
+    const fetchCohort = async () => {
+      setIsLoadingCohort(true);
+      setCohortError(null);
+      try {
+        /*
+         * Expected: GET /api/kiosk/cohort/:cohortId -> { cohort: Cohort }
+         * Edge cases: 404 if cohort is missing, 500 on server error
+         */
+        const res = await fetch(`/api/kiosk/cohort/${cohortId}`);
+        if (!res.ok) throw new Error('Failed cohort fetch');
+        const data: { cohort: Cohort } = await res.json();
+        setCohort(data.cohort ?? null);
+      } catch (err) {
+        console.error(err);
+        setCohortError(err instanceof Error ? err.message : String(err));
+        resetState();
+        toast({
+          title: 'Failed to load cohort',
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Retry" onClick={fetchCohort}>
+              Retry
+            </ToastAction>
+          ),
+        });
+      } finally {
+        setIsLoadingCohort(false);
+      }
+    };
     fetchCohort();
   }, [cohortId]);
 
@@ -142,6 +212,52 @@ const Kiosk = () => {
     }
   }, [token, toast]);
 
+  useEffect(() => {
+    const loadLearners = async () => {
+      setIsLoadingLearners(true);
+      setLearnersError(null);
+      try {
+        const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
+        if (!res.ok) throw new Error('Failed learners fetch');
+        const data: { learners: Learner[] } = await res.json();
+        setLearners(data.learners ?? []);
+      } catch (err) {
+        console.error(err);
+        setLearnersError(err instanceof Error ? err.message : String(err));
+        toast({ title: 'Failed to load learners', variant: 'destructive' });
+      } finally {
+        setIsLoadingLearners(false);
+    const loadEnterpriseAndCourses = async () => {
+      if (!cohort?.enterpriseId) return;
+      try {
+        const res = await fetch(`/api/enterprise/${cohort.enterpriseId}`);
+        if (res.ok) {
+          const data: { enterprise: Enterprise } = await res.json();
+          setEnterprise(data.enterprise ?? null);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      try {
+        const res = await fetch(`/api/enterprise/${cohort.enterpriseId}/courses`);
+        if (res.ok) {
+          const data: { courses: Course[] } = await res.json();
+          setCourses(data.courses ?? []);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadEnterpriseAndCourses();
+  }, [cohort?.enterpriseId]);
+
+  useEffect(() => {
+    if (!token || token !== 'demo123') {
+      toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
+    }
+  }, [token, toast]);
+
+  // global timer for content/assessment blocks
   useEffect(() => {
     if (step === 'block' && timer > 0) {
       const t = setInterval(() => {
@@ -160,6 +276,7 @@ const Kiosk = () => {
           fetchQuestions(block.id, currentIndex).then((qs) => {
             if (!qs) return;
             const built = buildQuestions(cfg, qs);
+            const built = buildQuestions(qs, cfg);
             setQuiz({ questions: built, answers: new Array(built.length).fill(-1), attempts: quiz.attempts });
             setQuestionIndex(0);
             setTimer((cfg.timeLimitMinutes ?? 0) * 60);
@@ -212,6 +329,26 @@ const Kiosk = () => {
       });
       return null;
     }
+        toast({
+          title: 'Failed to load learner',
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Retry" onClick={submitBadge}>
+              Retry
+            </ToastAction>
+          ),
+        });
+        return null;
+      }
+  };
+
+  const buildQuestions = (qs: Question[], cfg: BlockConfig): Question[] => {
+    const count = cfg.numQuestions ?? qs.length;
+    const shuffled = [...qs];
+    if (cfg.shuffleQuestions) {
+      shuffled.sort(() => Math.random() - 0.5);
+    }
+    return shuffled.slice(0, count);
   };
 
   const loadBlocks = async (courseId: string): Promise<boolean> => {
@@ -240,16 +377,17 @@ const Kiosk = () => {
   };
 
   const fetchQuestions = async (blockId: number, index: number): Promise<Question[] | null> => {
+    setIsLoadingQuestions(true);
+    setQuestionsError(null);
     try {
       const res = await fetch(`/api/kiosk/questions/${blockId}`);
       if (!res.ok) throw new Error('Failed question fetch');
       const data: { questions: Question[] } = await res.json();
       if (!data.questions?.length) throw new Error('No questions');
-      setError(null);
       return data.questions;
     } catch (err) {
       console.error(err);
-      setError('questions');
+      setQuestionsError(err instanceof Error ? err.message : 'Failed to load questions');
       resetState();
       toast({
         title: 'Failed to load questions',
@@ -261,6 +399,26 @@ const Kiosk = () => {
         ),
       });
       return null;
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
+  const loadQuestions = async (blockId: number) => {
+    setIsLoadingQuestions(true);
+    setQuestionsError(null);
+    try {
+      const res = await fetch(`/api/kiosk/questions/${blockId}`);
+      if (!res.ok) throw new Error('Failed question fetch');
+      const data: { questions: Question[] } = await res.json();
+      setQuestions(data.questions ?? []);
+    } catch (err) {
+      console.error(err);
+      setQuestionsError(err instanceof Error ? err.message : 'Failed to load questions');
+      toast({ title: 'Failed to load questions', variant: 'destructive' });
+      setQuestions([]);
+    } finally {
+      setIsLoadingQuestions(false);
     }
   };
 
@@ -275,9 +433,12 @@ const Kiosk = () => {
     const cfg = parseConfig(block);
 
     if (block.kind === 'ASSESSMENT') {
+      const cfg = parseConfig(block);
       const qs = await fetchQuestions(block.id, index);
       if (!qs) return;
       const built = buildQuestions(cfg, qs);
+      const cfg = parseConfig(block);
+      const built = buildQuestions(qs, cfg);
       setQuiz({ questions: built, answers: new Array(built.length).fill(-1), attempts: 0 });
       setQuestionIndex(0);
       setTimer((cfg.timeLimitMinutes ?? 0) * 60);
@@ -306,6 +467,38 @@ const Kiosk = () => {
       await submitBadge();
     } catch (err) {
       console.error(err);
+  const [fetchingLearner, setFetchingLearner] = useState(false);
+  const [learnerError, setLearnerError] = useState<string | null>(null);
+
+  const submitBadge = async () => {
+    setLearnerError(null);
+    setFetchingLearner(true);
+    try {
+      const learner = await fetchLearner(badgeId.toUpperCase());
+      if (!learner) {
+        setLearnerError('Badge not found. Please check your badge ID and try again.');
+        toast({
+          title: 'Badge Not Found',
+          description: 'Please check your badge ID and try again',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setCurrentLearner(learner);
+      const ok = await loadBlocks(cohortId ?? '0');
+      if (!ok) return;
+      await startBlock(0);
+      toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
+    } finally {
+      setFetchingLearner(false);
+    }
+  };
+
+  const handleBadgeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await submitBadge();
     } finally {
       setIsSubmitting(false);
     }
@@ -472,6 +665,43 @@ const Kiosk = () => {
                       <li key={c.id}>{c.title}</li>
                     ))}
                   </ul>
+                  <form onSubmit={handleBadgeSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="badgeId" className="text-lg">
+                        Badge ID
+                      </Label>
+                      <Input
+                        id="badgeId"
+                        type="text"
+                        value={badgeId}
+                        onChange={(e) => setBadgeId(e.target.value)}
+                        placeholder="Enter or scan badge ID"
+                        className="text-xl py-6 text-center font-mono"
+                        autoFocus
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full text-lg py-6"
+                      disabled={isSubmitting}
+                    >
+                      Start
+                    </Button>
+                  </form>
+
+                  {fetchingLearner && (
+                    <div className="mt-8 text-center text-sm text-muted-foreground">
+                      Verifying badge...
+                    </div>
+                  )}
+                  {learnerError && (
+                    <div className="mt-8 p-4 bg-destructive/10 text-destructive rounded-lg text-sm text-center">
+                      {learnerError}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
