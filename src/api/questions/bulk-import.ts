@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { Request, Response } from 'express';
 import { db } from '@/db';
 import { questions } from '@/db/schema';
 import Papa from 'papaparse';
@@ -19,10 +19,10 @@ function parseCsv(csv: string): BulkQuestion[] {
     skipEmptyLines: true,
   });
 
-  return data.map((row) => ({
+  return data.map((row: Record<string, string>) => ({
     type: row.type as 'MCQ' | 'TF',
     body: row.body,
-    choices: row.choices ? row.choices.split('|').map((c) => c.trim()) : undefined,
+    choices: row.choices ? row.choices.split('|').map((c: string) => c.trim()) : undefined,
     correctIndex: row.correctIndex ? Number(row.correctIndex) : undefined,
     correctBool:
       row.correctBool !== undefined && row.correctBool !== ''
@@ -33,7 +33,7 @@ function parseCsv(csv: string): BulkQuestion[] {
   }));
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

@@ -1,10 +1,10 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { Request, Response } from 'express';
 import { db } from '@/db';
 import { courses, reviewRequests } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const courseId = Number(req.query.id);
+export default async function handler(req: Request, res: Response) {
+  const courseId = Number(req.params.id);
   if (Number.isNaN(courseId)) {
     res.status(400).json({ error: 'Invalid course id' });
     return;
