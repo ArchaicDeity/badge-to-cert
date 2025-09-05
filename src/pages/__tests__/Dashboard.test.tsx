@@ -4,8 +4,6 @@ import { vi } from 'vitest';
 
 import Dashboard from '@/pages/Dashboard';
 import { useAuth, type UserRole } from '@/lib/use-auth';
-import { type UserRole, useAuth } from '@/lib/auth';
-
 
 // Mock hooks and contexts used within Dashboard
 vi.mock('@/hooks/use-toast', () => ({
