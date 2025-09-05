@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { mockQuestions, mockLearners, type Question } from '@/lib/mockData';
+import { mockQuestions, mockLearners, type Question, hasMinimumQuestions } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 
 type KioskStep = 'badge-input' | 'quiz' | 'complete';
@@ -63,13 +63,22 @@ const Kiosk = () => {
 
   const handleBadgeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const learner = mockLearners.find(l => l.badgeId === badgeId.toUpperCase());
     
     if (!learner) {
       toast({
         title: "Badge Not Found",
         description: "Please check your badge ID and try again",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasMinimumQuestions()) {
+      toast({
+        title: "Insufficient Questions",
+        description: `At least 20 questions are required to start the quiz. Only ${mockQuestions.length} available.`,
         variant: "destructive",
       });
       return;

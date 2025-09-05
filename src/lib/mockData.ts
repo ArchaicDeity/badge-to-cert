@@ -141,6 +141,15 @@ export const mockQuestions: Question[] = [
   }
 ];
 
+export const updateQuestion = (id: string, updates: Partial<Question>) => {
+  const index = mockQuestions.findIndex(q => q.id === id);
+  if (index === -1) return null;
+  mockQuestions[index] = { ...mockQuestions[index], ...updates };
+  return mockQuestions[index];
+};
+
+export const hasMinimumQuestions = (min = 20) => mockQuestions.length >= min;
+
 export const mockLearners: Learner[] = [
   { id: '1', name: 'Sarah Johnson', idNumber: '8801010123081', company: 'Sasol Synfuels', badgeId: 'SF001234' },
   { id: '2', name: 'Michael Chen', idNumber: '9005055678087', company: 'Sasol Mining', badgeId: 'SM002345' },
