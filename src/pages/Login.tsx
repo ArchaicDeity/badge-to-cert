@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Users, Eye } from 'lucide-react';
+import { Shield, Users, Eye, Building } from 'lucide-react';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,7 +37,7 @@ const Login = () => {
       });
     }
   };
-  const quickLogin = (role: 'admin' | 'assessor' | 'viewer') => {
+  const quickLogin = (role: 'admin' | 'assessor' | 'viewer' | 'enterprise') => {
     const credentials = {
       admin: {
         email: 'admin@sasol.com',
@@ -50,8 +50,12 @@ const Login = () => {
       viewer: {
         email: 'viewer@sasol.com',
         password: 'password'
+      },
+      enterprise: {
+        email: 'enterprise@sasol.com',
+        password: 'admin123'
       }
-    };
+    } as const;
     setEmail(credentials[role].email);
     setPassword(credentials[role].password);
   };
@@ -89,7 +93,7 @@ const Login = () => {
 
             <div className="mt-6 space-y-2">
               <p className="text-sm text-muted-foreground text-center">Quick Login (Demo)</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <Button variant="outline" size="sm" onClick={() => quickLogin('admin')} className="flex items-center gap-1">
                   <Shield className="h-3 w-3" />
                   Admin
@@ -101,6 +105,10 @@ const Login = () => {
                 <Button variant="outline" size="sm" onClick={() => quickLogin('viewer')} className="flex items-center gap-1">
                   <Eye className="h-3 w-3" />
                   Viewer
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => quickLogin('enterprise')} className="flex items-center gap-1">
+                  <Building className="h-3 w-3" />
+                  Enterprise
                 </Button>
               </div>
             </div>

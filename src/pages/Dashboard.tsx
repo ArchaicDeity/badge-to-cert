@@ -111,7 +111,7 @@ const Dashboard = () => {
 
       <div className="container mx-auto px-4 py-8 space-y-8">
         {/* Quick Actions */}
-        {user.role === 'ADMIN' && (
+        {(user.role === 'ADMIN' || user.role === 'ENTERPRISE') && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer" onClick={handleCreateCohort}>
               <CardContent className="p-6 text-center">
