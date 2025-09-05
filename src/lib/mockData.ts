@@ -131,13 +131,6 @@ export const mockQuestions: Question[] = [
     choices: ['Snug but comfortable', 'Tight enough to stop arterial bleeding', 'As tight as possible', 'Just tight enough to slow bleeding'],
     correctIndex: 1,
     tags: ['bleeding_control', 'tourniquet']
-  },
-  {
-    id: '10',
-    body: 'What information should be included on a tourniquet time tag?',
-    choices: ['Patient name only', 'Time applied only', 'Time applied and location', 'Time applied, location, and applied by'],
-    correctIndex: 3,
-    tags: ['bleeding_control', 'documentation']
   }
 ];
 
