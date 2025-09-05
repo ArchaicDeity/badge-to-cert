@@ -8,6 +8,18 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
 import { mockLearners, mockQuestions, type Question, type Learner } from '@/lib/mockData';
+import { Clock, User, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import {
+  mockQuestions,
+  mockLearners,
+  mockCohorts,
+  getEnterpriseById,
+  getCoursesForEnterprise,
+  type Question,
+  type Learner,
+} from '@/lib/mockData';
+import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
+
 import { useToast } from '@/hooks/use-toast';
 
 type KioskStep = 'badge-input' | 'block' | 'complete';
@@ -45,7 +57,6 @@ const Kiosk = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
   const { toast } = useToast();
-
   const [step, setStep] = useState<KioskStep>('badge-input');
   const [badgeId, setBadgeId] = useState('');
   const [currentLearner, setCurrentLearner] = useState<Learner | null>(null);
@@ -56,6 +67,23 @@ const Kiosk = () => {
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
 
   // validate kiosk token
+
+  const cohort = mockCohorts.find(c => c.id === (cohortId || '1'));
+  const enterprise = getEnterpriseById(cohort?.enterpriseId);
+  useEnterpriseBranding(enterprise);
+  const courses = getCoursesForEnterprise(cohort?.enterpriseId);
+
+  const [step, setStep] = useState<KioskStep>('badge-input');
+  const [badgeId, setBadgeId] = useState('');
+  const [currentLearner, setCurrentLearner] = useState<Learner | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes
+  const [quizResult, setQuizResult] = useState<{ score: number; passed: boolean } | null>(null);
+
+  // Validate kiosk token
+
   useEffect(() => {
     if (!token || token !== 'demo123') {
       toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
@@ -254,6 +282,18 @@ const Kiosk = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
       <div className="bg-primary text-primary-foreground p-4 text-center">
         <h1 className="text-2xl font-bold">SASOL First Aid Training</h1>
+
+      {/* Kiosk Header */}
+      <div className="bg-primary text-primary-foreground p-4 text-center flex flex-col items-center">
+        {enterprise?.brandLogoPath && (
+          <img
+            src={enterprise.brandLogoPath}
+            alt={enterprise.name}
+            className="h-12 mb-2 object-contain"
+          />
+        )}
+        <h1 className="text-2xl font-bold">{enterprise?.name || 'First Aid Training'}</h1>
+
         <p className="text-primary-foreground/80">Theory Assessment Kiosk</p>
       </div>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -265,6 +305,30 @@ const Kiosk = () => {
               </div>
               <CardTitle className="text-2xl">Badge Check-in</CardTitle>
               <CardDescription>Scan or enter your badge ID to begin the assessment</CardDescription>
+          <>
+            {courses.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Courses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {courses.map(c => (
+                      <li key={c.id}>{c.title}</li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+            <Card className="shadow-xl">
+              <CardHeader className="text-center">
+                <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <User className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle className="text-2xl">Badge Check-in</CardTitle>
+              <CardDescription>
+                Scan or enter your badge ID to begin the theory assessment
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleBadgeSubmit} className="space-y-6">
@@ -300,6 +364,7 @@ const Kiosk = () => {
               </div>
             </CardContent>
           </Card>
+          </>
         )}
 
         {step === 'block' && currentBlock && currentBlock.kind === 'CONTENT' && (
