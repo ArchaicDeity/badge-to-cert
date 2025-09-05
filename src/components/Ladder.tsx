@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -43,6 +43,7 @@ export type Block = {
 type LadderProps = {
   courseId: number
   initialBlocks: Block[]
+  onBlocksChange?: () => void
 }
 
 type SortableItemProps = Block & {
@@ -114,8 +115,11 @@ function SortableItem({
   )
 }
 
-export function Ladder({ courseId, initialBlocks }: LadderProps) {
+export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps) {
   const [blocks, setBlocks] = useState(initialBlocks)
+  useEffect(() => {
+    setBlocks(initialBlocks)
+  }, [initialBlocks])
   const sensors = useSensors(useSensor(PointerSensor))
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -130,6 +134,7 @@ export function Ladder({ courseId, initialBlocks }: LadderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId, order: newBlocks.map((b) => b.id) }),
       })
+      onBlocksChange?.()
     }
   }
 
@@ -140,6 +145,7 @@ export function Ladder({ courseId, initialBlocks }: LadderProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blockId: id, isMandatory: value }),
     })
+    onBlocksChange?.()
   }
 
   const handleDuplicate = async (id: number) => {
@@ -151,6 +157,7 @@ export function Ladder({ courseId, initialBlocks }: LadderProps) {
     if (res.ok) {
       const newBlock: Block = await res.json()
       setBlocks((prev) => [...prev, newBlock])
+      onBlocksChange?.()
     }
   }
 
@@ -164,6 +171,7 @@ export function Ladder({ courseId, initialBlocks }: LadderProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blockId: id, disabled }),
     })
+    onBlocksChange?.()
   }
 
   const handleDelete = async (id: number) => {
@@ -173,6 +181,7 @@ export function Ladder({ courseId, initialBlocks }: LadderProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blockId: id }),
     })
+    onBlocksChange?.()
   }
 
   const handleAddBlock = async (kind: 'CONTENT' | 'ASSESSMENT') => {
@@ -184,6 +193,7 @@ export function Ladder({ courseId, initialBlocks }: LadderProps) {
     if (res.ok) {
       const newBlock: Block = await res.json()
       setBlocks((prev) => [...prev, newBlock])
+      onBlocksChange?.()
     }
   }
 

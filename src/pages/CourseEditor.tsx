@@ -1,27 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Ladder, type Block } from '@/components/Ladder';
-
-const sampleBlocks: Block[] = [
-  { id: 1, title: 'Introduction' },
-  { id: 2, title: 'Lesson' },
-  { id: 3, title: 'Assessment' },
-];
 
 const CourseEditor = () => {
   const { courseId } = useParams();
   const id = Number(courseId);
   const [review, setReview] = useState<{ id: number; status: string; notes?: string } | null>(null);
   const [notes, setNotes] = useState('');
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBlocks = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/kiosk/course/${id}`);
+      if (!res.ok) throw new Error('Failed to load blocks');
+      const data: { blocks: Block[] } = await res.json();
+      setBlocks(data.blocks ?? []);
+      setError(null);
+    } catch {
+      setError('Failed to load blocks');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     fetch(`/api/courses/${id}/review`)
       .then((res) => res.json())
       .then((data) => setReview(data.review))
       .catch(() => {});
-  }, [id]);
+    fetchBlocks();
+  }, [id, fetchBlocks]);
 
   const requestReview = async () => {
     const res = await fetch(`/api/courses/${id}/review`, { method: 'POST' });
@@ -49,7 +62,17 @@ const CourseEditor = () => {
 
   return (
     <div className="p-4 space-y-4">
-      <Ladder courseId={id} initialBlocks={sampleBlocks} />
+      {loading ? (
+        <p>Loading blocks...</p>
+      ) : error ? (
+        <p className="text-red-500">{error}</p>
+      ) : (
+        <Ladder
+          courseId={id}
+          initialBlocks={blocks}
+          onBlocksChange={fetchBlocks}
+        />
+      )}
       {!review || review.status !== 'OPEN' ? (
         <Button onClick={requestReview}>Request Review</Button>
       ) : (
