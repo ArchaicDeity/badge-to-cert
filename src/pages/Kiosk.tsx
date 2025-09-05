@@ -8,16 +8,16 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
 import {
-  mockQuestions,
   mockLearners,
-  mockCohorts,
   getEnterpriseById,
   getCoursesForEnterprise,
   type Question,
   type Learner,
+  type Cohort,
 } from '@/lib/mockData';
 import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 
 type KioskStep = 'badge-input' | 'block' | 'complete';
 
@@ -62,11 +62,52 @@ const Kiosk = () => {
   const [timer, setTimer] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
+  const [cohort, setCohort] = useState<Cohort | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const cohort = mockCohorts.find((c) => c.id === (cohortId || '1'));
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(cohort?.enterpriseId);
+
+  // Reset kiosk timers and block state after failed network calls
+  const resetState = () => {
+    setBlocks([]);
+    setCurrentIndex(0);
+    setTimer(0);
+    setQuestionIndex(0);
+    setQuiz({ questions: [], answers: [], attempts: 0 });
+  };
+
+  // Fetch cohort details for branding and course lookup
+  useEffect(() => {
+    const fetchCohort = async () => {
+      try {
+        /*
+         * Expected: GET /api/kiosk/cohort/:cohortId -> { cohort: Cohort }
+         * Edge cases: 404 if cohort is missing, 500 on server error
+         */
+        const res = await fetch(`/api/kiosk/cohort/${cohortId}`);
+        if (!res.ok) throw new Error('Failed cohort fetch');
+        const data: { cohort: Cohort } = await res.json();
+        setCohort(data.cohort ?? null);
+        setError(null);
+      } catch (err) {
+        console.error(err);
+        setError('cohort');
+        resetState();
+        toast({
+          title: 'Failed to load cohort',
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Retry" onClick={fetchCohort}>
+              Retry
+            </ToastAction>
+          ),
+        });
+      }
+    };
+    fetchCohort();
+  }, [cohortId, toast]);
 
   useEffect(() => {
     if (!token || token !== 'demo123') {
@@ -89,16 +130,20 @@ const Kiosk = () => {
     if (quiz.retakeAvailableAt) {
       const id = setInterval(() => {
         if (Date.now() >= quiz.retakeAvailableAt!) {
-          const cfg = parseConfig(blocks[currentIndex]);
-          const qs = buildQuestions(cfg);
-          setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: quiz.attempts });
-          setQuestionIndex(0);
-          setTimer((cfg.timeLimitMinutes ?? 0) * 60);
-          setQuiz((prev) => ({ ...prev, retakeAvailableAt: undefined }));
+          const block = blocks[currentIndex];
+          const cfg = parseConfig(block);
+          fetchQuestions(block.id, currentIndex).then((qs) => {
+            if (!qs) return;
+            setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: quiz.attempts });
+            setQuestionIndex(0);
+            setTimer((cfg.timeLimitMinutes ?? 0) * 60);
+            setQuiz((prev) => ({ ...prev, retakeAvailableAt: undefined }));
+          });
         }
       }, 1000);
       return () => clearInterval(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quiz.retakeAvailableAt, quiz.attempts, blocks, currentIndex]);
 
   const parseConfig = (block: CourseBlock): BlockConfig => {
@@ -109,27 +154,93 @@ const Kiosk = () => {
     }
   };
 
-  const buildQuestions = (cfg: BlockConfig): Question[] => {
-    const count = cfg.numQuestions ?? mockQuestions.length;
-    const shuffled = [...mockQuestions];
-    if (cfg.shuffleQuestions) {
-      shuffled.sort(() => Math.random() - 0.5);
-    }
-    return shuffled.slice(0, count);
-  };
-
-  const loadBlocks = async (courseId: string) => {
+  const fetchLearner = async (id: string): Promise<Learner | null> => {
     try {
-      const res = await fetch(`/api/kiosk/course/${courseId}`);
-      const data: { blocks: CourseBlock[] } = await res.json();
-      setBlocks(data.blocks ?? []);
+      /*
+       * Expected: GET /api/kiosk/learner/:badgeId -> { learner: Learner }
+       * Edge cases: 404 for unknown badge, 500 for server errors
+       */
+      const res = await fetch(`/api/kiosk/learner/${id}`);
+      if (!res.ok) throw new Error('Failed learner fetch');
+      const data: { learner: Learner } = await res.json();
+      setError(null);
+      return data.learner;
     } catch (err) {
       console.error(err);
-      toast({ title: 'Failed to load course', variant: 'destructive' });
+      setError('learner');
+      resetState();
+      toast({
+        title: 'Failed to load learner',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={submitBadge}>
+            Retry
+          </ToastAction>
+        ),
+      });
+      return null;
     }
   };
 
-  const startBlock = (index: number) => {
+  const loadBlocks = async (courseId: string): Promise<boolean> => {
+    try {
+      /*
+       * Expected: GET /api/kiosk/course/:courseId -> { blocks: CourseBlock[] }
+       * Edge cases: 404 if course not found or unpublished
+       */
+      const res = await fetch(`/api/kiosk/course/${courseId}`);
+      if (!res.ok) throw new Error('Failed course fetch');
+      const data: { blocks: CourseBlock[] } = await res.json();
+      setBlocks(data.blocks ?? []);
+      setError(null);
+      return true;
+    } catch (err) {
+      console.error(err);
+      setError('blocks');
+      resetState();
+      toast({
+        title: 'Failed to load course',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={submitBadge}>
+            Retry
+          </ToastAction>
+        ),
+      });
+      return false;
+    }
+  };
+
+  const fetchQuestions = async (blockId: number, index: number): Promise<Question[] | null> => {
+    try {
+      /*
+       * Expected: GET /api/kiosk/questions/:blockId -> { questions: Question[] }
+       * Edge cases: empty question sets, 404 for invalid block
+       */
+      const res = await fetch(`/api/kiosk/questions/${blockId}`);
+      if (!res.ok) throw new Error('Failed question fetch');
+      const data: { questions: Question[] } = await res.json();
+      if (!data.questions?.length) throw new Error('No questions');
+      setError(null);
+      return data.questions;
+    } catch (err) {
+      console.error(err);
+      setError('questions');
+      resetState();
+      toast({
+        title: 'Failed to load questions',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={() => startBlock(index)}>
+            Retry
+          </ToastAction>
+        ),
+      });
+      return null;
+    }
+  };
+
+  const startBlock = async (index: number) => {
     if (index >= blocks.length) {
       setStep('complete');
       return;
@@ -140,7 +251,8 @@ const Kiosk = () => {
     const cfg = parseConfig(block);
 
     if (block.kind === 'ASSESSMENT') {
-      const qs = buildQuestions(cfg);
+      const qs = await fetchQuestions(block.id, index);
+      if (!qs) return;
       setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
       setQuestionIndex(0);
       setTimer((cfg.timeLimitMinutes ?? 0) * 60);
@@ -151,21 +263,19 @@ const Kiosk = () => {
     setStep('block');
   };
 
+  const submitBadge = async () => {
+    const learner = await fetchLearner(badgeId.toUpperCase());
+    if (!learner) return;
+    setCurrentLearner(learner);
+    const ok = await loadBlocks(cohortId ?? '0');
+    if (!ok) return;
+    await startBlock(0);
+    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
+  };
+
   const handleBadgeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const learner = mockLearners.find((l) => l.badgeId === badgeId.toUpperCase());
-    if (!learner) {
-      toast({
-        title: 'Badge Not Found',
-        description: 'Please check your badge ID and try again',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setCurrentLearner(learner);
-    await loadBlocks(cohortId ?? '0');
-    startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
+    await submitBadge();
   };
 
   const handleContentContinue = () => {
@@ -189,7 +299,7 @@ const Kiosk = () => {
     await updateProgress(status, score);
     const block = blocks[currentIndex];
     if (status === 'COMPLETED' || !block.isMandatory) {
-      startBlock(currentIndex + 1);
+      await startBlock(currentIndex + 1);
     } else {
       setStep('complete');
     }
