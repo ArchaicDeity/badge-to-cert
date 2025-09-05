@@ -86,7 +86,14 @@ const Kiosk = () => {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
   const [cohort, setCohort] = useState<Cohort | null>(null);
+  const [isLoadingCohort, setIsLoadingCohort] = useState(false);
+  const [cohortError, setCohortError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [learners, setLearners] = useState<Learner[]>([]);
+  const [isLoadingLearners, setIsLoadingLearners] = useState(false);
+  const [learnersError, setLearnersError] = useState<string | null>(null);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enterprise, setEnterprise] = useState<Enterprise | null>(null);
   useEnterpriseBranding(enterprise ?? undefined);
@@ -104,6 +111,8 @@ const Kiosk = () => {
   // Fetch cohort details for branding and course lookup
   useEffect(() => {
     const fetchCohort = async () => {
+      setIsLoadingCohort(true);
+      setCohortError(null);
       try {
         /*
          * Expected: GET /api/kiosk/cohort/:cohortId -> { cohort: Cohort }
@@ -113,10 +122,9 @@ const Kiosk = () => {
         if (!res.ok) throw new Error('Failed cohort fetch');
         const data: { cohort: Cohort } = await res.json();
         setCohort(data.cohort ?? null);
-        setError(null);
       } catch (err) {
         console.error(err);
-        setError('cohort');
+        setCohortError(err instanceof Error ? err.message : String(err));
         resetState();
         toast({
           title: 'Failed to load cohort',
@@ -127,12 +135,34 @@ const Kiosk = () => {
             </ToastAction>
           ),
         });
+      } finally {
+        setIsLoadingCohort(false);
       }
     };
     fetchCohort();
   }, [cohortId, toast]);
 
   useEffect(() => {
+    if (!token || token !== 'demo123') {
+      toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
+    }
+  }, [token, toast]);
+
+  useEffect(() => {
+    const loadLearners = async () => {
+      setIsLoadingLearners(true);
+      setLearnersError(null);
+      try {
+        const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
+        if (!res.ok) throw new Error('Failed learners fetch');
+        const data: { learners: Learner[] } = await res.json();
+        setLearners(data.learners ?? []);
+      } catch (err) {
+        console.error(err);
+        setLearnersError(err instanceof Error ? err.message : String(err));
+        toast({ title: 'Failed to load learners', variant: 'destructive' });
+      } finally {
+        setIsLoadingLearners(false);
     const loadEnterpriseAndCourses = async () => {
       if (!cohort?.enterpriseId) return;
       try {
@@ -218,6 +248,17 @@ const Kiosk = () => {
       console.error(err);
       setError('learner');
       resetState();
+      toast({
+        title: 'Failed to load learner',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={submitBadge}>
+            Retry
+          </ToastAction>
+        ),
+      });
+      return null;
+    }
         toast({
           title: 'Failed to load learner',
           variant: 'destructive',
@@ -270,6 +311,8 @@ const Kiosk = () => {
   };
 
   const fetchQuestions = async (blockId: number, index: number): Promise<Question[] | null> => {
+    setIsLoadingQuestions(true);
+    setQuestionsError(null);
     try {
       /*
        * Expected: GET /api/kiosk/questions/:blockId -> { questions: Question[] }
@@ -279,11 +322,10 @@ const Kiosk = () => {
       if (!res.ok) throw new Error('Failed question fetch');
       const data: { questions: Question[] } = await res.json();
       if (!data.questions?.length) throw new Error('No questions');
-      setError(null);
       return data.questions;
     } catch (err) {
       console.error(err);
-      setError('questions');
+      setQuestionsError(err instanceof Error ? err.message : 'Failed to load questions');
       resetState();
       toast({
         title: 'Failed to load questions',
@@ -295,6 +337,26 @@ const Kiosk = () => {
         ),
       });
       return null;
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
+  const loadQuestions = async (blockId: number) => {
+    setIsLoadingQuestions(true);
+    setQuestionsError(null);
+    try {
+      const res = await fetch(`/api/kiosk/questions/${blockId}`);
+      if (!res.ok) throw new Error('Failed question fetch');
+      const data: { questions: Question[] } = await res.json();
+      setQuestions(data.questions ?? []);
+    } catch (err) {
+      console.error(err);
+      setQuestionsError(err instanceof Error ? err.message : 'Failed to load questions');
+      toast({ title: 'Failed to load questions', variant: 'destructive' });
+      setQuestions([]);
+    } finally {
+      setIsLoadingQuestions(false);
     }
   };
 
@@ -307,6 +369,7 @@ const Kiosk = () => {
     setCurrentIndex(index);
     const block = blocks[index];
     if (block.kind === 'ASSESSMENT') {
+      const cfg = parseConfig(block);
       const qs = await fetchQuestions(block.id, index);
       if (!qs) return;
       const cfg = parseConfig(block);
