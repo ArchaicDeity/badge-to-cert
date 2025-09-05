@@ -43,6 +43,7 @@ const CourseEditor = () => {
   };
 
   const approve = async () => {
+    if (!review) return;
     await fetch(`/api/reviews/${review.id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,6 +53,7 @@ const CourseEditor = () => {
   };
 
   const reject = async () => {
+    if (!review) return;
     await fetch(`/api/reviews/${review.id}/reject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

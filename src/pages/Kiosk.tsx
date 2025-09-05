@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
 import {
   mockQuestions,
-  mockLearners,
   mockCohorts,
   getEnterpriseById,
   getCoursesForEnterprise,
@@ -62,6 +61,9 @@ const Kiosk = () => {
   const [timer, setTimer] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
+  const [learners, setLearners] = useState<Learner[]>([]);
+  const [isLoadingLearners, setIsLoadingLearners] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const cohort = mockCohorts.find((c) => c.id === (cohortId || '1'));
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
@@ -73,6 +75,23 @@ const Kiosk = () => {
       toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
     }
   }, [token, toast]);
+
+  useEffect(() => {
+    const loadLearners = async () => {
+      setIsLoadingLearners(true);
+      try {
+        const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
+        const data: { learners: Learner[] } = await res.json();
+        setLearners(data.learners ?? []);
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Failed to load learners', variant: 'destructive' });
+      } finally {
+        setIsLoadingLearners(false);
+      }
+    };
+    loadLearners();
+  }, [cohortId, toast]);
 
   // global timer for content/assessment blocks
   useEffect(() => {
@@ -156,9 +175,13 @@ const Kiosk = () => {
 
   const handleBadgeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setLearnerError(null);
     setFetchingLearner(true);
     const learner = mockLearners.find((l) => l.badgeId === badgeId.toUpperCase());
+
+    setIsSubmitting(true);
+    const learner = learners.find((l) => l.badgeId === badgeId.toUpperCase());
     if (!learner) {
       setLearnerError('Badge not found. Please check your badge ID and try again.');
       setFetchingLearner(false);
@@ -167,13 +190,25 @@ const Kiosk = () => {
         description: 'Please check your badge ID and try again',
         variant: 'destructive',
       });
+      setIsSubmitting(false);
       return;
     }
+
     setCurrentLearner(learner);
     await loadBlocks(cohortId ?? '0');
     startBlock(0);
     toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
     setFetchingLearner(false);
+
+    try {
+      setCurrentLearner(learner);
+      await loadBlocks(cohortId ?? '0');
+      startBlock(0);
+      toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
+    } finally {
+      setIsSubmitting(false);
+    }
+
   };
 
   const handleContentContinue = () => {
@@ -327,9 +362,15 @@ const Kiosk = () => {
                         className="text-xl py-6 text-center font-mono"
                         autoFocus
                         required
+                        disabled={isLoadingLearners || isSubmitting}
                       />
                     </div>
-                    <Button type="submit" size="lg" className="w-full text-lg py-6">
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full text-lg py-6"
+                      disabled={isLoadingLearners || isSubmitting}
+                    >
                       Start
                     </Button>
                   </form>
