@@ -5,24 +5,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
-import { 
-  Users, 
-  Calendar, 
-  Upload, 
-  Download, 
-  FileText, 
+import {
+  Users,
+  Calendar,
+  Upload,
+  Download,
+  FileText,
   Shield,
   LogOut,
   Plus,
-  BarChart3
+  BarChart3,
+  FilePlus
 } from 'lucide-react';
 import { mockCohorts, getCohortEnrollments } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
+import { QuestionFormDialog } from '@/components/QuestionFormDialog';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [selectedCohort] = useState(mockCohorts[0]);
+  const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -91,7 +94,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8 space-y-8">
         {/* Quick Actions */}
         {user.role === 'ADMIN' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer" onClick={handleCreateCohort}>
               <CardContent className="p-6 text-center">
                 <Plus className="h-8 w-8 text-primary mx-auto mb-2" />
@@ -121,6 +124,17 @@ const Dashboard = () => {
                 <FileText className="h-8 w-8 text-accent mx-auto mb-2" />
                 <h3 className="font-semibold">Certificate Register</h3>
                 <p className="text-sm text-muted-foreground">Manage issued certificates</p>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="border-secondary/20 hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => setQuestionDialogOpen(true)}
+            >
+              <CardContent className="p-6 text-center">
+                <FilePlus className="h-8 w-8 text-secondary mx-auto mb-2" />
+                <h3 className="font-semibold">Add Question</h3>
+                <p className="text-sm text-muted-foreground">Create new quiz item</p>
               </CardContent>
             </Card>
           </div>
@@ -227,6 +241,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      <QuestionFormDialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen} />
     </div>
   );
 };
