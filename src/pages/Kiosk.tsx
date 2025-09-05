@@ -213,14 +213,16 @@ const Kiosk = () => {
         ),
       });
       return null;
+    }
+  };
 
   const buildQuestions = (cfg: BlockConfig): Question[] => {
     const count = cfg.numQuestions ?? questions.length;
     const shuffled = [...questions];
     if (cfg.shuffleQuestions) {
       shuffled.sort(() => Math.random() - 0.5);
-
     }
+    return shuffled.slice(0, count);
   };
 
   const loadBlocks = async (courseId: string): Promise<boolean> => {
@@ -320,52 +322,32 @@ const Kiosk = () => {
 
   const [fetchingLearner, setFetchingLearner] = useState(false);
   const [learnerError, setLearnerError] = useState<string | null>(null);
-  const submitBadge = async () => {
-    const learner = await fetchLearner(badgeId.toUpperCase());
-    if (!learner) return;
-    setCurrentLearner(learner);
-    const ok = await loadBlocks(cohortId ?? '0');
-    if (!ok) return;
-    await startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-  const handleBadgeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
 
+  const submitBadge = async () => {
     setLearnerError(null);
     setFetchingLearner(true);
-    const learner = mockLearners.find((l) => l.badgeId === badgeId.toUpperCase());
-
     setIsSubmitting(true);
-    const learner = learners.find((l) => l.badgeId === badgeId.toUpperCase());
-    if (!learner) {
-      setLearnerError('Badge not found. Please check your badge ID and try again.');
-      setFetchingLearner(false);
-      toast({
-        title: 'Badge Not Found',
-        description: 'Please check your badge ID and try again',
-        variant: 'destructive',
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    setCurrentLearner(learner);
-    await loadBlocks(cohortId ?? '0');
-    startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-    setFetchingLearner(false);
-
-    await startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
     try {
+      const learner = await fetchLearner(badgeId.toUpperCase());
+      if (!learner) {
+        setLearnerError('Badge not found. Please check your badge ID and try again.');
+        toast({
+          title: 'Badge Not Found',
+          description: 'Please check your badge ID and try again',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       setCurrentLearner(learner);
-      await loadBlocks(cohortId ?? '0');
-      startBlock(0);
+      const ok = await loadBlocks(cohortId ?? '0');
+      if (!ok) return;
+      await startBlock(0);
       toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
     } finally {
+      setFetchingLearner(false);
       setIsSubmitting(false);
     }
-
   };
 
   const handleBadgeSubmit = async (e: React.FormEvent) => {
