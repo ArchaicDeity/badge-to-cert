@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Users, Eye, Building } from 'lucide-react';
 const Login = () => {
