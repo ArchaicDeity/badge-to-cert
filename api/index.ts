@@ -1,3 +1,13 @@
+
+import express from "express";
+import contentRouter from "./content";
+
+const app = express();
+
+app.use("/content", contentRouter);
+
+export default app;
+
 import express from 'express';
 import { reorderBlocksRouter } from './routes/reorderBlocks';
 
@@ -13,3 +23,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`Server listening on port ${port}`);
   });
 }
+
