@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS courses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  code TEXT NOT NULL,
+  description TEXT,
+  version INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'DRAFT',
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
