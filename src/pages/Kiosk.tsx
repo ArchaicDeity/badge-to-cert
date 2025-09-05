@@ -151,10 +151,17 @@ const Kiosk = () => {
     setStep('block');
   };
 
+  const [fetchingLearner, setFetchingLearner] = useState(false);
+  const [learnerError, setLearnerError] = useState<string | null>(null);
+
   const handleBadgeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLearnerError(null);
+    setFetchingLearner(true);
     const learner = mockLearners.find((l) => l.badgeId === badgeId.toUpperCase());
     if (!learner) {
+      setLearnerError('Badge not found. Please check your badge ID and try again.');
+      setFetchingLearner(false);
       toast({
         title: 'Badge Not Found',
         description: 'Please check your badge ID and try again',
@@ -166,6 +173,7 @@ const Kiosk = () => {
     await loadBlocks(cohortId ?? '0');
     startBlock(0);
     toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
+    setFetchingLearner(false);
   };
 
   const handleContentContinue = () => {
@@ -326,16 +334,16 @@ const Kiosk = () => {
                     </Button>
                   </form>
 
-                  <div className="mt-8 p-4 bg-muted/50 rounded-lg">
-                    <h3 className="font-semibold mb-2">Demo Badge IDs:</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {mockLearners.map((l) => (
-                        <div key={l.id} className="font-mono">
-                          {l.badgeId} - {l.name}
-                        </div>
-                      ))}
+                  {fetchingLearner && (
+                    <div className="mt-8 text-center text-sm text-muted-foreground">
+                      Verifying badge...
                     </div>
-                  </div>
+                  )}
+                  {learnerError && (
+                    <div className="mt-8 p-4 bg-destructive/10 text-destructive rounded-lg text-sm text-center">
+                      {learnerError}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </>
