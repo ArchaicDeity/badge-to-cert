@@ -6,6 +6,7 @@ export interface Question {
   choices: string[];
   correctIndex: number;
   tags: string[];
+  type?: string;
 }
 
 export interface Learner {
@@ -74,70 +75,80 @@ export const mockQuestions: Question[] = [
     body: 'What is the correct compression depth for adult CPR?',
     choices: ['At least 2 inches (5 cm)', 'At least 1 inch (2.5 cm)', 'At least 3 inches (7.5 cm)', 'At least 1.5 inches (4 cm)'],
     correctIndex: 0,
-    tags: ['cpr', 'basic_life_support']
+    tags: ['cpr', 'basic_life_support'],
+    type: 'multiple_choice'
   },
   {
     id: '2',
     body: 'What is the correct compression rate for CPR?',
     choices: ['60-80 per minute', '80-100 per minute', '100-120 per minute', '120-140 per minute'],
     correctIndex: 2,
-    tags: ['cpr', 'basic_life_support']
+    tags: ['cpr', 'basic_life_support'],
+    type: 'multiple_choice'
   },
   {
     id: '3',
     body: 'When should you use an AED?',
     choices: ['On any unconscious person', 'Only when trained personnel arrive', 'On unresponsive victims with no normal breathing', 'After 10 minutes of CPR'],
     correctIndex: 2,
-    tags: ['aed', 'basic_life_support']
+    tags: ['aed', 'basic_life_support'],
+    type: 'multiple_choice'
   },
   {
     id: '4',
     body: 'How long should you flush eyes exposed to chemicals?',
     choices: ['5 minutes', '10 minutes', '15 minutes', '20 minutes'],
     correctIndex: 2,
-    tags: ['chemical_exposure', 'eye_injury']
+    tags: ['chemical_exposure', 'eye_injury'],
+    type: 'multiple_choice'
   },
   {
     id: '5',
     body: 'What does the acronym SBAR stand for in medical handover?',
     choices: ['Situation, Background, Assessment, Recommendation', 'Safety, Background, Action, Result', 'Situation, Baseline, Action, Response', 'Safety, Baseline, Assessment, Recommendation'],
     correctIndex: 0,
-    tags: ['communication', 'handover']
+    tags: ['communication', 'handover'],
+    type: 'multiple_choice'
   },
   {
     id: '6',
     body: 'What is the first step in controlling severe bleeding?',
     choices: ['Apply a tourniquet', 'Direct pressure on the wound', 'Elevate the limb', 'Apply pressure to pressure points'],
     correctIndex: 1,
-    tags: ['bleeding_control', 'wound_care']
+    tags: ['bleeding_control', 'wound_care'],
+    type: 'multiple_choice'
   },
   {
     id: '7',
     body: 'How often should you switch rescuers during CPR?',
     choices: ['Every minute', 'Every 2 minutes', 'Every 5 minutes', 'When tired'],
     correctIndex: 1,
-    tags: ['cpr', 'basic_life_support']
+    tags: ['cpr', 'basic_life_support'],
+    type: 'multiple_choice'
   },
   {
     id: '8',
     body: 'What is the universal sign of choking?',
     choices: ['Pointing to throat', 'Hands clutching throat', 'Waving hands', 'Pointing to chest'],
     correctIndex: 1,
-    tags: ['choking', 'airway_obstruction']
+    tags: ['choking', 'airway_obstruction'],
+    type: 'multiple_choice'
   },
   {
     id: '9',
     body: 'When applying a tourniquet, how tight should it be?',
     choices: ['Snug but comfortable', 'Tight enough to stop arterial bleeding', 'As tight as possible', 'Just tight enough to slow bleeding'],
     correctIndex: 1,
-    tags: ['bleeding_control', 'tourniquet']
+    tags: ['bleeding_control', 'tourniquet'],
+    type: 'multiple_choice'
   },
   {
     id: '10',
     body: 'What information should be included on a tourniquet time tag?',
     choices: ['Patient name only', 'Time applied only', 'Time applied and location', 'Time applied, location, and applied by'],
     correctIndex: 3,
-    tags: ['bleeding_control', 'documentation']
+    tags: ['bleeding_control', 'documentation'],
+    type: 'multiple_choice'
   }
 ];
 
