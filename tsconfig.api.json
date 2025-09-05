@@ -11,4 +11,13 @@
     "types": ["node"]
   },
   "include": ["api/**/*.ts"]
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2023"],
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "outDir": "dist-api"
+  },
+  "include": ["api/**/*"]
 }
