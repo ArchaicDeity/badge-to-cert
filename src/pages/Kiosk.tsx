@@ -6,11 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
-import { 
-  mockLearners,
-  mockQuestions,
-  mockCohorts,
+import { Clock, User, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import {
   getEnterpriseById,
   getCoursesForEnterprise,
   type Question,
@@ -56,6 +53,7 @@ const Kiosk = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
   const { toast } = useToast();
+
   const [step, setStep] = useState<KioskStep>('badge-input');
   const [badgeId, setBadgeId] = useState('');
   const [currentLearner, setCurrentLearner] = useState<Learner | null>(null);
@@ -63,18 +61,18 @@ const Kiosk = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timer, setTimer] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [learners, setLearners] = useState<Learner[]>([]);
   const [isLoadingLearners, setIsLoadingLearners] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [learnerError, setLearnerError] = useState<string | null>(null);
+
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(cohort?.enterpriseId);
 
-  // Reset kiosk timers and block state after failed network calls
   const resetState = () => {
     setBlocks([]);
     setCurrentIndex(0);
@@ -83,36 +81,60 @@ const Kiosk = () => {
     setQuiz({ questions: [], answers: [], attempts: 0 });
   };
 
-  // Fetch cohort details for branding and course lookup
+  const fetchCohort = async () => {
+    try {
+      const res = await fetch(`/api/kiosk/cohort/${cohortId}`);
+      if (!res.ok) throw new Error('Failed cohort fetch');
+      const data: { cohort: Cohort } = await res.json();
+      setCohort(data.cohort ?? null);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('cohort');
+      resetState();
+      toast({
+        title: 'Failed to load cohort',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={fetchCohort}>
+            Retry
+          </ToastAction>
+        ),
+      });
+    }
+  };
+
+  const loadLearners = async () => {
+    setIsLoadingLearners(true);
+    try {
+      const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
+      const data: { learners: Learner[] } = await res.json();
+      setLearners(data.learners ?? []);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('learners');
+      toast({
+        title: 'Failed to load learners',
+        variant: 'destructive',
+        action: (
+          <ToastAction altText="Retry" onClick={loadLearners}>
+            Retry
+          </ToastAction>
+        ),
+      });
+    } finally {
+      setIsLoadingLearners(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCohort = async () => {
-      try {
-        /*
-         * Expected: GET /api/kiosk/cohort/:cohortId -> { cohort: Cohort }
-         * Edge cases: 404 if cohort is missing, 500 on server error
-         */
-        const res = await fetch(`/api/kiosk/cohort/${cohortId}`);
-        if (!res.ok) throw new Error('Failed cohort fetch');
-        const data: { cohort: Cohort } = await res.json();
-        setCohort(data.cohort ?? null);
-        setError(null);
-      } catch (err) {
-        console.error(err);
-        setError('cohort');
-        resetState();
-        toast({
-          title: 'Failed to load cohort',
-          variant: 'destructive',
-          action: (
-            <ToastAction altText="Retry" onClick={fetchCohort}>
-              Retry
-            </ToastAction>
-          ),
-        });
-      }
-    };
     fetchCohort();
-  }, [cohortId, toast]);
+  }, [cohortId]);
+
+  useEffect(() => {
+    loadLearners();
+  }, [cohortId]);
 
   useEffect(() => {
     if (!token || token !== 'demo123') {
@@ -120,24 +142,6 @@ const Kiosk = () => {
     }
   }, [token, toast]);
 
-  useEffect(() => {
-    const loadLearners = async () => {
-      setIsLoadingLearners(true);
-      try {
-        const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
-        const data: { learners: Learner[] } = await res.json();
-        setLearners(data.learners ?? []);
-      } catch (err) {
-        console.error(err);
-        toast({ title: 'Failed to load learners', variant: 'destructive' });
-      } finally {
-        setIsLoadingLearners(false);
-      }
-    };
-    loadLearners();
-  }, [cohortId, toast]);
-
-  // global timer for content/assessment blocks
   useEffect(() => {
     if (step === 'block' && timer > 0) {
       const t = setInterval(() => {
@@ -147,7 +151,6 @@ const Kiosk = () => {
     }
   }, [step, timer]);
 
-  // retake cooldown timer
   useEffect(() => {
     if (quiz.retakeAvailableAt) {
       const id = setInterval(() => {
@@ -156,7 +159,8 @@ const Kiosk = () => {
           const cfg = parseConfig(block);
           fetchQuestions(block.id, currentIndex).then((qs) => {
             if (!qs) return;
-            setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: quiz.attempts });
+            const built = buildQuestions(cfg, qs);
+            setQuiz({ questions: built, answers: new Array(built.length).fill(-1), attempts: quiz.attempts });
             setQuestionIndex(0);
             setTimer((cfg.timeLimitMinutes ?? 0) * 60);
             setQuiz((prev) => ({ ...prev, retakeAvailableAt: undefined }));
@@ -168,18 +172,6 @@ const Kiosk = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quiz.retakeAvailableAt, quiz.attempts, blocks, currentIndex]);
 
-  // rebuild quiz when question set or config changes
-  useEffect(() => {
-    const block = blocks[currentIndex];
-    if (!block || block.kind !== 'ASSESSMENT') return;
-    if (questions.length === 0) return;
-    const cfg = parseConfig(block);
-    const qs = buildQuestions(cfg);
-    setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
-    setQuestionIndex(0);
-    setTimer((cfg.timeLimitMinutes ?? 0) * 60);
-  }, [questions, blocks, currentIndex]);
-
   const parseConfig = (block: CourseBlock): BlockConfig => {
     try {
       return block.configJson ? JSON.parse(block.configJson) : {};
@@ -188,12 +180,17 @@ const Kiosk = () => {
     }
   };
 
+  const buildQuestions = (cfg: BlockConfig, qs: Question[]): Question[] => {
+    const count = cfg.numQuestions ?? qs.length;
+    const shuffled = [...qs];
+    if (cfg.shuffleQuestions) {
+      shuffled.sort(() => Math.random() - 0.5);
+    }
+    return shuffled.slice(0, count);
+  };
+
   const fetchLearner = async (id: string): Promise<Learner | null> => {
     try {
-      /*
-       * Expected: GET /api/kiosk/learner/:badgeId -> { learner: Learner }
-       * Edge cases: 404 for unknown badge, 500 for server errors
-       */
       const res = await fetch(`/api/kiosk/learner/${id}`);
       if (!res.ok) throw new Error('Failed learner fetch');
       const data: { learner: Learner } = await res.json();
@@ -203,6 +200,7 @@ const Kiosk = () => {
       console.error(err);
       setError('learner');
       resetState();
+      setLearnerError('Badge not found. Please check your badge ID and try again.');
       toast({
         title: 'Failed to load learner',
         variant: 'destructive',
@@ -213,22 +211,11 @@ const Kiosk = () => {
         ),
       });
       return null;
-
-  const buildQuestions = (cfg: BlockConfig): Question[] => {
-    const count = cfg.numQuestions ?? questions.length;
-    const shuffled = [...questions];
-    if (cfg.shuffleQuestions) {
-      shuffled.sort(() => Math.random() - 0.5);
-
     }
   };
 
   const loadBlocks = async (courseId: string): Promise<boolean> => {
     try {
-      /*
-       * Expected: GET /api/kiosk/course/:courseId -> { blocks: CourseBlock[] }
-       * Edge cases: 404 if course not found or unpublished
-       */
       const res = await fetch(`/api/kiosk/course/${courseId}`);
       if (!res.ok) throw new Error('Failed course fetch');
       const data: { blocks: CourseBlock[] } = await res.json();
@@ -243,7 +230,7 @@ const Kiosk = () => {
         title: 'Failed to load course',
         variant: 'destructive',
         action: (
-          <ToastAction altText="Retry" onClick={submitBadge}>
+          <ToastAction altText="Retry" onClick={() => loadBlocks(courseId)}>
             Retry
           </ToastAction>
         ),
@@ -254,10 +241,6 @@ const Kiosk = () => {
 
   const fetchQuestions = async (blockId: number, index: number): Promise<Question[] | null> => {
     try {
-      /*
-       * Expected: GET /api/kiosk/questions/:blockId -> { questions: Question[] }
-       * Edge cases: empty question sets, 404 for invalid block
-       */
       const res = await fetch(`/api/kiosk/questions/${blockId}`);
       if (!res.ok) throw new Error('Failed question fetch');
       const data: { questions: Question[] } = await res.json();
@@ -281,18 +264,6 @@ const Kiosk = () => {
     }
   };
 
-  const loadQuestions = async (blockId: number) => {
-    try {
-      const res = await fetch(`/api/kiosk/questions/${blockId}`);
-      const data: { questions: Question[] } = await res.json();
-      setQuestions(data.questions ?? []);
-    } catch (err) {
-      console.error(err);
-      toast({ title: 'Failed to load questions', variant: 'destructive' });
-      setQuestions([]);
-    }
-  };
-
   const startBlock = async (index: number) => {
     if (index >= blocks.length) {
       setStep('complete');
@@ -301,25 +272,22 @@ const Kiosk = () => {
 
     setCurrentIndex(index);
     const block = blocks[index];
+    const cfg = parseConfig(block);
+
     if (block.kind === 'ASSESSMENT') {
       const qs = await fetchQuestions(block.id, index);
       if (!qs) return;
-      setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
+      const built = buildQuestions(cfg, qs);
+      setQuiz({ questions: built, answers: new Array(built.length).fill(-1), attempts: 0 });
       setQuestionIndex(0);
       setTimer((cfg.timeLimitMinutes ?? 0) * 60);
-
-      await loadQuestions(block.id);
-
     } else {
-      const cfg = parseConfig(block);
       setTimer((cfg.durationMinutes ?? 0) * 60);
     }
 
     setStep('block');
   };
 
-  const [fetchingLearner, setFetchingLearner] = useState(false);
-  const [learnerError, setLearnerError] = useState<string | null>(null);
   const submitBadge = async () => {
     const learner = await fetchLearner(badgeId.toUpperCase());
     if (!learner) return;
@@ -328,49 +296,19 @@ const Kiosk = () => {
     if (!ok) return;
     await startBlock(0);
     toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-  const handleBadgeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    setLearnerError(null);
-    setFetchingLearner(true);
-    const learner = mockLearners.find((l) => l.badgeId === badgeId.toUpperCase());
-
-    setIsSubmitting(true);
-    const learner = learners.find((l) => l.badgeId === badgeId.toUpperCase());
-    if (!learner) {
-      setLearnerError('Badge not found. Please check your badge ID and try again.');
-      setFetchingLearner(false);
-      toast({
-        title: 'Badge Not Found',
-        description: 'Please check your badge ID and try again',
-        variant: 'destructive',
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    setCurrentLearner(learner);
-    await loadBlocks(cohortId ?? '0');
-    startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-    setFetchingLearner(false);
-
-    await startBlock(0);
-    toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-    try {
-      setCurrentLearner(learner);
-      await loadBlocks(cohortId ?? '0');
-      startBlock(0);
-      toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
-    } finally {
-      setIsSubmitting(false);
-    }
-
   };
 
   const handleBadgeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitBadge();
+    setLearnerError(null);
+    setIsSubmitting(true);
+    try {
+      await submitBadge();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleContentContinue = () => {
@@ -451,6 +389,46 @@ const Kiosk = () => {
     setQuiz({ questions: [], answers: [], attempts: 0 });
   };
 
+  if (isLoadingLearners) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    const retryMap: Record<string, (() => void) | undefined> = {
+      cohort: fetchCohort,
+      learners: loadLearners,
+      learner: submitBadge,
+      blocks: () => loadBlocks(cohortId ?? '0'),
+      questions: () => startBlock(currentIndex),
+    };
+    const messageMap: Record<string, string> = {
+      cohort: 'Failed to load cohort',
+      learners: 'Failed to load learners',
+      learner: 'Failed to load learner',
+      blocks: 'Failed to load course',
+      questions: 'Failed to load questions',
+    };
+    const retry = retryMap[error];
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center space-y-4">
+            <p className="text-muted-foreground">{messageMap[error] ?? 'An error occurred'}</p>
+            {retry && (
+              <Button onClick={retry} variant="outline">
+                Retry
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!token || token !== 'demo123') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-destructive/5">
@@ -467,10 +445,9 @@ const Kiosk = () => {
 
   const currentBlock = blocks[currentIndex];
 
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
-        {/* Kiosk Header */}
-        <div className="bg-primary text-primary-foreground p-4 text-center flex flex-col items-center">
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10">
+      <div className="bg-primary text-primary-foreground p-4 text-center flex flex-col items-center">
         {enterprise?.brandLogoPath && (
           <img
             src={enterprise.brandLogoPath}
@@ -479,78 +456,64 @@ const Kiosk = () => {
           />
         )}
         <h1 className="text-2xl font-bold">{enterprise?.name || 'First Aid Training'}</h1>
-
         <p className="text-primary-foreground/80">Theory Assessment Kiosk</p>
       </div>
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-          {step === 'badge-input' && (
-            <>
-              {courses.length > 0 && (
-                <Card className="mb-6">
-                  <CardHeader>
-                    <CardTitle>Courses</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {courses.map((c) => (
-                        <li key={c.id}>{c.title}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              )}
-              <Card className="shadow-xl">
-                <CardHeader className="text-center">
-                  <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                    <User className="h-8 w-8 text-primary" />
-                  </div>
-                  <CardTitle className="text-2xl">Badge Check-in</CardTitle>
-                  <CardDescription>
-                    Scan or enter your badge ID to begin the theory assessment
-                  </CardDescription>
+        {step === 'badge-input' && (
+          <>
+            {courses.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Courses</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleBadgeSubmit} className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="badgeId" className="text-lg">
-                        Badge ID
-                      </Label>
-                      <Input
-                        id="badgeId"
-                        type="text"
-                        value={badgeId}
-                        onChange={(e) => setBadgeId(e.target.value)}
-                        placeholder="Enter or scan badge ID"
-                        className="text-xl py-6 text-center font-mono"
-                        autoFocus
-                        required
-                        disabled={isLoadingLearners || isSubmitting}
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="w-full text-lg py-6"
-                      disabled={isLoadingLearners || isSubmitting}
-                    >
-                      Start
-                    </Button>
-                  </form>
-
-                  {fetchingLearner && (
-                    <div className="mt-8 text-center text-sm text-muted-foreground">
-                      Verifying badge...
-                    </div>
-                  )}
-                  {learnerError && (
-                    <div className="mt-8 p-4 bg-destructive/10 text-destructive rounded-lg text-sm text-center">
-                      {learnerError}
-                    </div>
-                  )}
+                  <ul className="list-disc pl-5 space-y-1">
+                    {courses.map((c) => (
+                      <li key={c.id}>{c.title}</li>
+                    ))}
+                  </ul>
                 </CardContent>
               </Card>
-            </>
-          )}
+            )}
+            <Card className="shadow-xl">
+              <CardHeader className="text-center">
+                <div className="mx-auto h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <User className="h-8 w-8 text-primary" />
+                </div>
+                <CardTitle className="text-2xl">Badge Check-in</CardTitle>
+                <CardDescription>
+                  Scan or enter your badge ID to begin the theory assessment
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleBadgeSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="badgeId" className="text-lg">
+                      Badge ID
+                    </Label>
+                    <Input
+                      id="badgeId"
+                      type="text"
+                      value={badgeId}
+                      onChange={(e) => setBadgeId(e.target.value)}
+                      placeholder="Enter or scan badge ID"
+                      className="text-xl py-6 text-center font-mono"
+                      autoFocus
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <Button type="submit" size="lg" className="w-full text-lg py-6" disabled={isSubmitting}>
+                    {isSubmitting ? 'Starting...' : 'Start'}
+                  </Button>
+                </form>
+                {learnerError && (
+                  <p className="mt-4 text-sm text-center text-destructive">{learnerError}</p>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {step === 'block' && currentBlock && currentBlock.kind === 'CONTENT' && (
           <Card className="shadow-xl">
@@ -574,7 +537,7 @@ const Kiosk = () => {
           </Card>
         )}
 
-        {step === 'block' && currentBlock && currentBlock.kind === 'ASSESSMENT' && quiz.questions.length > 0 && (
+        {step === 'block' && currentBlock && currentBlock.kind === 'ASSESSMENT' && (
           <div className="space-y-6">
             <Card>
               <CardContent className="p-4">
