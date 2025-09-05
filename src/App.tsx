@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Kiosk from "./pages/Kiosk";
 import Assessor from "./pages/Assessor";
+import Course from "./pages/Course";
 import Verify from "./pages/Verify";
 import NotFound from "./pages/NotFound";
 import Builder from "./pages/Builder";
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/kiosk/:cohortId" element={<Kiosk />} />
             <Route path="/assessor/:cohortId" element={<Assessor />} />
             <Route path="/verify/:certificateCode" element={<Verify />} />
+            <Route path="/courses/:id" element={<Course />} />
             <Route path="/builder" element={<Builder />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
