@@ -1,7 +1,5 @@
 
 import type { Request, Response } from 'express';
-import formidable, { File } from 'formidable';
-import type { NextApiRequest, NextApiResponse } from 'next';
 import formidable, { type Fields, type Files, type File } from 'formidable';
 import fs from 'fs';
 import path from 'path';
@@ -21,7 +19,6 @@ export default async function handler(req: Request, res: Response) {
     const blockId = parseInt(fields.blockId?.toString() ?? '', 10);
     const durationMinutes = fields.durationMinutes ? parseInt(fields.durationMinutes.toString(), 10) : null;
     const file = files.file as File | File[] | undefined;
-    const file = (files as Files & { file?: File | File[] }).file;
     
     if (!blockId || !file) {
       res.status(400).json({ error: 'Missing blockId or file' });
