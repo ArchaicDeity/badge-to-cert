@@ -9,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
 
-  const { courseId, order } = req.body as { courseId: number; order: number[] };
+  const { order } = req.body as { order: number[] };
 
   if (!Array.isArray(order)) {
     res.status(400).json({ error: 'Invalid order array' });

@@ -7,6 +7,7 @@ export interface Enterprise {
   brandLogoPath?: string;
   brandPrimaryColor?: string;
   brandSecondaryColor?: string;
+  brandLoginMessage?: string;
 }
 
 export interface Course {
