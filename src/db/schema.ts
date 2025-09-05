@@ -29,8 +29,8 @@ export const courseBlocks = sqliteTable('course_blocks', {
   kind: text('kind', { enum: ['CONTENT', 'ASSESSMENT'] }).notNull(),
   title: text('title').notNull(),
   position: integer('position').notNull(),
-  isMandatory: integer('is_mandatory', { mode: 'boolean' }).notNull().default(1),
-  disabled: integer('disabled', { mode: 'boolean' }).notNull().default(0),
+  isMandatory: integer('is_mandatory', { mode: 'boolean' }).notNull().default(true),
+  disabled: integer('disabled', { mode: 'boolean' }).notNull().default(false),
   configJson: text('config_json'),
 });
 
@@ -51,7 +51,7 @@ export const assessments = sqliteTable('assessments', {
   passMarkPercent: integer('pass_mark_percent').notNull(),
   retakeCooldownMinutes: integer('retake_cooldown_minutes').default(10),
   maxAttempts: integer('max_attempts').default(2),
-  shuffleQuestions: integer('shuffle_questions', { mode: 'boolean' }).default(1),
+  shuffleQuestions: integer('shuffle_questions', { mode: 'boolean' }).default(true),
 });
 
 export const questions = sqliteTable('questions', {
