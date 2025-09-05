@@ -31,6 +31,8 @@ export interface Enrollment {
   status: LearnerStatus;
   theoryScore?: number;
   practicalPassed?: boolean;
+  /** Optional path to a generated certificate file for the learner */
+  certificateFile?: string;
 }
 
 export interface PracticalRubric {
@@ -183,4 +185,38 @@ export const getCohortEnrollments = (cohortId: string) => {
   return mockEnrollments
     .filter(e => e.cohortId === cohortId)
     .map(getEnrollmentWithLearner);
+};
+
+/** Tracks which enrollment blocks are configured for validation */
+export const blockValidation: Record<string, boolean> = {};
+
+/** Marks the given block as unconfigured. */
+export const setBlockUnconfigured = (id: string) => {
+  blockValidation[id] = false;
+};
+
+/**
+ * Delete an enrollment record and remove its certificate file if present.
+ * Also marks the block as unconfigured for validation.
+ */
+export const deleteEnrollment = (enrollmentId: string) => {
+  const index = mockEnrollments.findIndex(e => e.id === enrollmentId);
+  if (index === -1) return;
+
+  const enrollment = mockEnrollments[index];
+
+  if (enrollment.certificateFile && typeof window === 'undefined') {
+    // Attempt to remove the certificate file if running in a Node environment
+    import('fs')
+      .then(fs => {
+        if (fs.existsSync(enrollment.certificateFile!)) {
+          fs.unlinkSync(enrollment.certificateFile!);
+        }
+      })
+      .catch(() => {
+        // Ignore errors in environments without filesystem access
+      });
+  }
+
+  mockEnrollments.splice(index, 1);
 };

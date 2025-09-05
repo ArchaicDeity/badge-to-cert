@@ -11,6 +11,7 @@ import Assessor from "./pages/Assessor";
 import Course from "./pages/Course";
 import Verify from "./pages/Verify";
 import NotFound from "./pages/NotFound";
+import Builder from "./pages/Builder";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/assessor/:cohortId" element={<Assessor />} />
             <Route path="/verify/:certificateCode" element={<Verify />} />
             <Route path="/courses/:id" element={<Course />} />
+            <Route path="/builder" element={<Builder />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
