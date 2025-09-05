@@ -10,7 +10,7 @@ export default async function handler(req: Request, res: Response) {
   }
 
   const courseId = Number(req.params.courseId);
-  if (!courseId) {
+  if (Number.isNaN(courseId)) {
     res.status(400).json({ error: 'Invalid courseId' });
     return;
   }
