@@ -24,8 +24,27 @@ const mockUsers: User[] = [
   { id: '2', email: 'assessor@sasol.com', role: 'ASSESSOR', name: 'John Assessor' },
   { id: '3', email: 'viewer@sasol.com', role: 'VIEWER', name: 'View Only' },
   { id: '4', email: 'enterprise@sasol.com', role: 'ENTERPRISE', name: 'Enterprise User' },
-  { id: '4', email: 'enterprise@sasol.com', role: 'ENTERPRISE', name: 'Enterprise Admin' },
+  { id: '5', email: 'enterprise-admin@sasol.com', role: 'ADMIN', name: 'Enterprise Admin' },
 ];
+
+// Development-time assertion for duplicate emails
+if (process.env.NODE_ENV !== 'production') {
+  const seen = new Set<string>();
+  const duplicates = mockUsers.filter(user => {
+    if (seen.has(user.email)) {
+      return true;
+    }
+    seen.add(user.email);
+    return false;
+  });
+  if (duplicates.length > 0) {
+    throw new Error(
+      `Duplicate mock user emails detected: ${duplicates
+        .map(u => u.email)
+        .join(', ')}`,
+    );
+  }
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
