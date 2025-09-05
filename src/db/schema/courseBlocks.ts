@@ -1,3 +1,11 @@
+
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+export const courseBlocks = sqliteTable("course_blocks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+});
+
 import { sqliteTable, integer, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { courses } from './courses';
 
@@ -16,3 +24,4 @@ export const courseBlocks = sqliteTable(
     coursePositionUnique: uniqueIndex('course_position_unique').on(table.courseId, table.position),
   })
 );
+
