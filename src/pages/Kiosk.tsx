@@ -7,19 +7,40 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
-import { 
-  mockLearners,
-  mockQuestions,
-  mockCohorts,
-  getEnterpriseById,
-  getCoursesForEnterprise,
-  type Question,
-  type Learner,
-  type Cohort,
-} from '@/lib/mockData';
 import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
+
+interface Question {
+  id: string;
+  body: string;
+  choices: string[];
+  correctIndex: number;
+}
+
+interface Learner {
+  id: string;
+  name: string;
+  badgeId: string;
+}
+
+interface Cohort {
+  id: string;
+  enterpriseId: string;
+}
+
+interface Enterprise {
+  id: string;
+  name: string;
+  brandLogoPath?: string;
+  brandPrimaryColor?: string;
+  brandSecondaryColor?: string;
+}
+
+interface Course {
+  id: string;
+  title: string;
+}
 
 type KioskStep = 'badge-input' | 'block' | 'complete';
 
@@ -63,7 +84,6 @@ const Kiosk = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timer, setTimer] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [isLoadingCohort, setIsLoadingCohort] = useState(false);
@@ -75,9 +95,9 @@ const Kiosk = () => {
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const enterprise = getEnterpriseById(cohort?.enterpriseId);
-  useEnterpriseBranding(enterprise);
-  const courses = getCoursesForEnterprise(cohort?.enterpriseId);
+  const [enterprise, setEnterprise] = useState<Enterprise | null>(null);
+  useEnterpriseBranding(enterprise ?? undefined);
+  const [courses, setCourses] = useState<Course[]>([]);
 
   // Reset kiosk timers and block state after failed network calls
   const resetState = () => {
@@ -143,10 +163,35 @@ const Kiosk = () => {
         toast({ title: 'Failed to load learners', variant: 'destructive' });
       } finally {
         setIsLoadingLearners(false);
+    const loadEnterpriseAndCourses = async () => {
+      if (!cohort?.enterpriseId) return;
+      try {
+        const res = await fetch(`/api/enterprise/${cohort.enterpriseId}`);
+        if (res.ok) {
+          const data: { enterprise: Enterprise } = await res.json();
+          setEnterprise(data.enterprise ?? null);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      try {
+        const res = await fetch(`/api/enterprise/${cohort.enterpriseId}/courses`);
+        if (res.ok) {
+          const data: { courses: Course[] } = await res.json();
+          setCourses(data.courses ?? []);
+        }
+      } catch (err) {
+        console.error(err);
       }
     };
-    loadLearners();
-  }, [cohortId, toast]);
+    loadEnterpriseAndCourses();
+  }, [cohort?.enterpriseId]);
+
+  useEffect(() => {
+    if (!token || token !== 'demo123') {
+      toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
+    }
+  }, [token, toast]);
 
   // global timer for content/assessment blocks
   useEffect(() => {
@@ -167,7 +212,8 @@ const Kiosk = () => {
           const cfg = parseConfig(block);
           fetchQuestions(block.id, currentIndex).then((qs) => {
             if (!qs) return;
-            setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: quiz.attempts });
+            const built = buildQuestions(qs, cfg);
+            setQuiz({ questions: built, answers: new Array(built.length).fill(-1), attempts: quiz.attempts });
             setQuestionIndex(0);
             setTimer((cfg.timeLimitMinutes ?? 0) * 60);
             setQuiz((prev) => ({ ...prev, retakeAvailableAt: undefined }));
@@ -178,18 +224,6 @@ const Kiosk = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quiz.retakeAvailableAt, quiz.attempts, blocks, currentIndex]);
-
-  // rebuild quiz when question set or config changes
-  useEffect(() => {
-    const block = blocks[currentIndex];
-    if (!block || block.kind !== 'ASSESSMENT') return;
-    if (questions.length === 0) return;
-    const cfg = parseConfig(block);
-    const qs = buildQuestions(cfg);
-    setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
-    setQuestionIndex(0);
-    setTimer((cfg.timeLimitMinutes ?? 0) * 60);
-  }, [questions, blocks, currentIndex]);
 
   const parseConfig = (block: CourseBlock): BlockConfig => {
     try {
@@ -225,15 +259,26 @@ const Kiosk = () => {
       });
       return null;
     }
+        toast({
+          title: 'Failed to load learner',
+          variant: 'destructive',
+          action: (
+            <ToastAction altText="Retry" onClick={submitBadge}>
+              Retry
+            </ToastAction>
+          ),
+        });
+        return null;
+      }
   };
 
-  const buildQuestions = (cfg: BlockConfig): Question[] => {
-    const count = cfg.numQuestions ?? questions.length;
-    const shuffled = [...questions];
+  const buildQuestions = (qs: Question[], cfg: BlockConfig): Question[] => {
+    const count = cfg.numQuestions ?? qs.length;
+    const shuffled = [...qs];
     if (cfg.shuffleQuestions) {
       shuffled.sort(() => Math.random() - 0.5);
-
     }
+    return shuffled.slice(0, count);
   };
 
   const loadBlocks = async (courseId: string): Promise<boolean> => {
@@ -327,12 +372,11 @@ const Kiosk = () => {
       const cfg = parseConfig(block);
       const qs = await fetchQuestions(block.id, index);
       if (!qs) return;
-      setQuiz({ questions: qs, answers: new Array(qs.length).fill(-1), attempts: 0 });
+      const cfg = parseConfig(block);
+      const built = buildQuestions(qs, cfg);
+      setQuiz({ questions: built, answers: new Array(built.length).fill(-1), attempts: 0 });
       setQuestionIndex(0);
       setTimer((cfg.timeLimitMinutes ?? 0) * 60);
-
-      await loadQuestions(block.id);
-
     } else {
       const cfg = parseConfig(block);
       setTimer((cfg.durationMinutes ?? 0) * 60);
@@ -529,14 +573,14 @@ const Kiosk = () => {
                         className="text-xl py-6 text-center font-mono"
                         autoFocus
                         required
-                        disabled={isLoadingLearners || isSubmitting}
+                        disabled={isSubmitting}
                       />
                     </div>
                     <Button
                       type="submit"
                       size="lg"
                       className="w-full text-lg py-6"
-                      disabled={isLoadingLearners || isSubmitting}
+                      disabled={isSubmitting}
                     >
                       Start
                     </Button>
