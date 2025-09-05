@@ -16,20 +16,19 @@ import {
   Plus,
   BarChart3
 } from 'lucide-react';
-import { mockCohorts, getCohortEnrollments } from '@/lib/mockData';
+import { mockCohorts, getCohortEnrollments, deleteEnrollment, setBlockUnconfigured } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [selectedCohort] = useState(mockCohorts[0]);
+  const [enrollments, setEnrollments] = useState(getCohortEnrollments(selectedCohort.id));
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const enrollments = getCohortEnrollments(selectedCohort.id);
-  
   const stats = {
     total: enrollments.length,
     notStarted: enrollments.filter(e => e.status === 'NOT_STARTED').length,
@@ -57,6 +56,12 @@ const Dashboard = () => {
       title: "Downloading Results",
       description: "CSV and certificate ZIP would be generated here",
     });
+  };
+
+  const handleDeleteEnrollment = (id: string) => {
+    deleteEnrollment(id);
+    setBlockUnconfigured(id);
+    setEnrollments(getCohortEnrollments(selectedCohort.id));
   };
 
   return (
@@ -198,7 +203,7 @@ const Dashboard = () => {
           <CardContent>
             <div className="space-y-2">
               {enrollments.map((enrollment) => (
-                <div 
+                <div
                   key={enrollment.id}
                   className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
@@ -220,6 +225,9 @@ const Dashboard = () => {
                       </div>
                     )}
                     <StatusBadge status={enrollment.status} />
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteEnrollment(enrollment.id)}>
+                      Delete
+                    </Button>
                   </div>
                 </div>
               ))}
