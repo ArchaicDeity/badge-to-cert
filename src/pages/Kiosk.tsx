@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,22 @@ const Kiosk = () => {
 
   const [badgeId, setBadgeId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Temp cohort loader to mirror real kiosk behaviour
+  const loadCohort = async () => {
+    try {
+      // In the real kiosk this would load cohort details
+      await fetch('/api/kiosk/cohort');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      // no-op: placeholder for any cleanup if needed
+    }
+  };
+
+  useEffect(() => {
+    loadCohort();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
