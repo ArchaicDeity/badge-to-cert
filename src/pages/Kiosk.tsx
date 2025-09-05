@@ -109,19 +109,26 @@ const Kiosk = () => {
 
   const handleSubmitQuiz = () => {
     let correctAnswers = 0;
-    
+
     questions.forEach((question, index) => {
-      if (answers[index] === question.correctIndex) {
-        correctAnswers++;
+      if (question.type === 'MCQ') {
+        if (answers[index] === question.correctIndex) {
+          correctAnswers++;
+        }
+      } else if (question.type === 'TF') {
+        const correct = question.correctBool ? 1 : 0;
+        if (answers[index] === correct) {
+          correctAnswers++;
+        }
       }
     });
-    
+
     const score = Math.round((correctAnswers / questions.length) * 100);
     const passed = score >= 80;
-    
+
     setQuizResult({ score, passed });
     setStep('complete');
-    
+
     toast({
       title: passed ? "Quiz Passed!" : "Quiz Not Passed",
       description: `Score: ${score}% (${correctAnswers}/${questions.length} correct)`,
@@ -249,28 +256,34 @@ const Kiosk = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {questions[currentQuestionIndex]?.choices.map((choice, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswerSelect(index)}
-                      className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
-                        answers[currentQuestionIndex] === index
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                  {(() => {
+                    const question = questions[currentQuestionIndex];
+                    const opts = question?.type === 'MCQ'
+                      ? question.choices ?? []
+                      : ['True', 'False'];
+                    return opts.map((choice, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAnswerSelect(index)}
+                        className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
                           answers[currentQuestionIndex] === index
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-muted-foreground'
-                        }`}>
-                          {String.fromCharCode(65 + index)}
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                            answers[currentQuestionIndex] === index
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground'
+                          }`}>
+                            {String.fromCharCode(65 + index)}
+                          </div>
+                          <span className="text-lg">{choice}</span>
                         </div>
-                        <span className="text-lg">{choice}</span>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ));
+                  })()}
                 </div>
 
                 <div className="flex justify-between mt-8">
