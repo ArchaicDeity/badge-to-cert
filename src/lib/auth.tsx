@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type UserRole = 'ADMIN' | 'ASSESSOR' | 'VIEWER';
+export type UserRole = 'ADMIN' | 'ASSESSOR' | 'VIEWER' | 'ENTERPRISE';
 
 export interface User {
   id: string;
@@ -23,6 +23,7 @@ const mockUsers: User[] = [
   { id: '1', email: 'admin@sasol.com', role: 'ADMIN', name: 'Admin User' },
   { id: '2', email: 'assessor@sasol.com', role: 'ASSESSOR', name: 'John Assessor' },
   { id: '3', email: 'viewer@sasol.com', role: 'VIEWER', name: 'View Only' },
+  { id: '4', email: 'enterprise@sasol.com', role: 'ENTERPRISE', name: 'Enterprise User' },
 ];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
