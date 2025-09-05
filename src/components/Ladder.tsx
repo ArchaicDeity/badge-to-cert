@@ -139,24 +139,30 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
   }
 
   const handleToggleMandatory = async (id: number, value: boolean) => {
-    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, isMandatory: value } : b)))
-    await fetch('/api/blocks/mandatory', {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, isMandatory: value } : b)),
+    )
+    const res = await fetch('/api/blocks/mandatory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blockId: id, isMandatory: value }),
+      body: JSON.stringify({ id }),
     })
-    onBlocksChange?.()
+    if (res.ok) {
+      const { block } = await res.json()
+      setBlocks((prev) => prev.map((b) => (b.id === block.id ? block : b)))
+      onBlocksChange?.()
+    }
   }
 
   const handleDuplicate = async (id: number) => {
     const res = await fetch('/api/blocks/duplicate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ courseId, blockId: id }),
+      body: JSON.stringify({ id }),
     })
     if (res.ok) {
-      const newBlock: Block = await res.json()
-      setBlocks((prev) => [...prev, newBlock])
+      const { block } = await res.json()
+      setBlocks((prev) => [...prev, block])
       onBlocksChange?.()
     }
   }
@@ -165,13 +171,19 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
     const block = blocks.find((b) => b.id === id)
     if (!block) return
     const disabled = !block.disabled
-    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, disabled } : b)))
-    await fetch('/api/blocks/disable', {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, disabled } : b)),
+    )
+    const res = await fetch('/api/blocks/disable', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blockId: id, disabled }),
+      body: JSON.stringify({ id }),
     })
-    onBlocksChange?.()
+    if (res.ok) {
+      const { block: updated } = await res.json()
+      setBlocks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+      onBlocksChange?.()
+    }
   }
 
   const handleDelete = async (id: number) => {
@@ -179,20 +191,22 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
     await fetch('/api/blocks/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blockId: id }),
+      body: JSON.stringify({ id }),
     })
     onBlocksChange?.()
   }
 
   const handleAddBlock = async (kind: 'CONTENT' | 'ASSESSMENT') => {
+    const title =
+      kind === 'CONTENT' ? 'New Content Block' : 'New Assessment Block'
     const res = await fetch('/api/blocks/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ courseId, kind }),
+      body: JSON.stringify({ courseId, kind, title }),
     })
     if (res.ok) {
-      const newBlock: Block = await res.json()
-      setBlocks((prev) => [...prev, newBlock])
+      const { block } = await res.json()
+      setBlocks((prev) => [...prev, block])
       onBlocksChange?.()
     }
   }
