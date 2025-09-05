@@ -1,5 +1,20 @@
 import { LearnerStatus } from "@/components/StatusBadge";
 
+export interface Enterprise {
+  id: string;
+  name: string;
+  slug: string;
+  brandLogoPath?: string;
+  brandPrimaryColor?: string;
+  brandSecondaryColor?: string;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  enterpriseId?: string;
+}
+
 export interface Question {
   id: string;
   body: string;
@@ -22,6 +37,7 @@ export interface Cohort {
   venue: string;
   instructor: string;
   assessor: string;
+  enterpriseId: string;
 }
 
 export interface Enrollment {
@@ -149,20 +165,46 @@ export const mockLearners: Learner[] = [
   { id: '5', name: 'Lisa van der Merwe', idNumber: '9203308765432', company: 'Sasol Synfuels', badgeId: 'SF005678' },
 ];
 
+export const mockEnterprises: Enterprise[] = [
+  {
+    id: '1',
+    name: 'Sasol',
+    slug: 'sasol',
+    brandLogoPath: '/vite.svg',
+    brandPrimaryColor: '194 87% 32%',
+    brandSecondaryColor: '210 17% 95%'
+  },
+  {
+    id: '2',
+    name: 'Acme Corp',
+    slug: 'acme',
+    brandPrimaryColor: '340 82% 52%',
+    brandSecondaryColor: '210 17% 95%'
+  }
+];
+
+export const mockCourses: Course[] = [
+  { id: 'g1', title: 'Global Safety Induction' },
+  { id: 's1', title: 'Sasol First Aid', enterpriseId: '1' },
+  { id: 'a1', title: 'Acme Fire Safety', enterpriseId: '2' }
+];
+
 export const mockCohorts: Cohort[] = [
   {
     id: '1',
     date: new Date().toISOString().split('T')[0],
     venue: 'Secunda Training Centre',
     instructor: 'Dr. Jane Smith',
-    assessor: 'John Assessor'
+    assessor: 'John Assessor',
+    enterpriseId: '1'
   },
   {
     id: '2',
     date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     venue: 'Sasolburg Safety Hub',
     instructor: 'Prof. Mike Johnson',
-    assessor: 'John Assessor'
+    assessor: 'John Assessor',
+    enterpriseId: '2'
   }
 ];
 
@@ -184,3 +226,23 @@ export const getCohortEnrollments = (cohortId: string) => {
     .filter(e => e.cohortId === cohortId)
     .map(getEnrollmentWithLearner);
 };
+
+export const getEnterpriseById = (id?: string) =>
+  mockEnterprises.find(e => e.id === id);
+
+export const updateEnterprise = (id: string, data: Partial<Enterprise>) => {
+  const index = mockEnterprises.findIndex(e => e.id === id);
+  if (index !== -1) {
+    mockEnterprises[index] = { ...mockEnterprises[index], ...data };
+  }
+};
+
+export const getCoursesForEnterprise = (enterpriseId?: string) => {
+  const enterpriseCourses = mockCourses.filter(c => c.enterpriseId === enterpriseId);
+  return enterpriseCourses.length > 0
+    ? enterpriseCourses
+    : mockCourses.filter(c => !c.enterpriseId);
+};
+
+export const getCohortById = (id: string) =>
+  mockCohorts.find(c => c.id === id);

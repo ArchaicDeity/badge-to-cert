@@ -1,28 +1,39 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
-import { 
-  Users, 
-  Calendar, 
-  Upload, 
-  Download, 
-  FileText, 
+import {
+  Users,
+  Calendar,
+  Upload,
+  Download,
+  FileText,
   Shield,
   LogOut,
   Plus,
-  BarChart3
+  BarChart3,
+  Palette
 } from 'lucide-react';
-import { mockCohorts, getCohortEnrollments } from '@/lib/mockData';
+import {
+  mockCohorts,
+  getCohortEnrollments,
+  getEnterpriseById,
+  getCoursesForEnterprise,
+} from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
+import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [selectedCohort] = useState(mockCohorts[0]);
+  const enterprise = getEnterpriseById(selectedCohort.enterpriseId);
+  useEnterpriseBranding(enterprise);
+  const courses = getCoursesForEnterprise(selectedCohort.enterpriseId);
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -65,12 +76,22 @@ const Dashboard = () => {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 bg-gradient-to-br from-primary to-primary-glow rounded-lg flex items-center justify-center">
-              <Shield className="h-5 w-5 text-primary-foreground" />
-            </div>
+            {enterprise?.brandLogoPath ? (
+              <img
+                src={enterprise.brandLogoPath}
+                alt={enterprise.name}
+                className="h-10 w-10 object-contain rounded-lg"
+              />
+            ) : (
+              <div className="h-10 w-10 bg-gradient-to-br from-primary to-primary-glow rounded-lg flex items-center justify-center">
+                <Shield className="h-5 w-5 text-primary-foreground" />
+              </div>
+            )}
             <div>
-              <h1 className="text-xl font-semibold">First Aid Training</h1>
-              <p className="text-sm text-muted-foreground">SASOL Safety Management</p>
+              <h1 className="text-xl font-semibold">{enterprise?.name || 'First Aid Training'}</h1>
+              <p className="text-sm text-muted-foreground">
+                {enterprise?.brandLoginMessage || 'Training Management'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -91,7 +112,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8 space-y-8">
         {/* Quick Actions */}
         {user.role === 'ADMIN' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer" onClick={handleCreateCohort}>
               <CardContent className="p-6 text-center">
                 <Plus className="h-8 w-8 text-primary mx-auto mb-2" />
@@ -121,6 +142,17 @@ const Dashboard = () => {
                 <FileText className="h-8 w-8 text-accent mx-auto mb-2" />
                 <h3 className="font-semibold">Certificate Register</h3>
                 <p className="text-sm text-muted-foreground">Manage issued certificates</p>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="border-secondary/20 hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => navigate(`/enterprise/${selectedCohort.enterpriseId}`)}
+            >
+              <CardContent className="p-6 text-center">
+                <Palette className="h-8 w-8 text-secondary mx-auto mb-2" />
+                <h3 className="font-semibold">Enterprise Branding</h3>
+                <p className="text-sm text-muted-foreground">Logo & colors</p>
               </CardContent>
             </Card>
           </div>
@@ -159,6 +191,21 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {courses.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Courses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc pl-5 space-y-1">
+                {courses.map(c => (
+                  <li key={c.id}>{c.title}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Today's Cohort */}
         <Card>
