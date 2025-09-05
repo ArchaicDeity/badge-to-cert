@@ -11,6 +11,7 @@ import Kiosk from "./pages/Kiosk";
 import Assessor from "./pages/Assessor";
 import Verify from "./pages/Verify";
 import NotFound from "./pages/NotFound";
+import QuestionImport from "./pages/QuestionImport";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,14 @@ const App = () => (
             <Route path="/kiosk/:cohortId" element={<Kiosk />} />
             <Route path="/assessor/:cohortId" element={<Assessor />} />
             <Route path="/verify/:certificateCode" element={<Verify />} />
+            <Route
+              path="/questions/import"
+              element={
+                <ProtectedRoute>
+                  <QuestionImport />
+                </ProtectedRoute>
+              }
+            />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
