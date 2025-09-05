@@ -7,6 +7,7 @@ export interface Enterprise {
   brandLogoPath?: string;
   brandPrimaryColor?: string;
   brandSecondaryColor?: string;
+  brandLoginMessage?: string;
 }
 
 export interface Course {
@@ -47,6 +48,10 @@ export interface Enrollment {
   status: LearnerStatus;
   theoryScore?: number;
   practicalPassed?: boolean;
+}
+
+export interface EnrollmentWithLearner extends Enrollment {
+  learner: Learner;
 }
 
 export interface PracticalRubric {
@@ -216,12 +221,12 @@ export const mockEnrollments: Enrollment[] = [
   { id: '5', learnerId: '5', cohortId: '1', status: 'THEORY_PASS', theoryScore: 90 },
 ];
 
-export const getEnrollmentWithLearner = (enrollment: Enrollment) => {
-  const learner = mockLearners.find(l => l.id === enrollment.learnerId);
+export const getEnrollmentWithLearner = (enrollment: Enrollment): EnrollmentWithLearner => {
+  const learner = mockLearners.find(l => l.id === enrollment.learnerId)!;
   return { ...enrollment, learner };
 };
 
-export const getCohortEnrollments = (cohortId: string) => {
+export const getCohortEnrollments = (cohortId: string): EnrollmentWithLearner[] => {
   return mockEnrollments
     .filter(e => e.cohortId === cohortId)
     .map(getEnrollmentWithLearner);

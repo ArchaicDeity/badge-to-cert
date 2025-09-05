@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { 
@@ -17,13 +16,13 @@ import {
   FileCheck,
   ArrowLeft
 } from 'lucide-react';
-import { getCohortEnrollments, type PracticalRubric } from '@/lib/mockData';
+import { getCohortEnrollments, type PracticalRubric, type EnrollmentWithLearner } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 
 const Assessor = () => {
   const { cohortId } = useParams();
   const { toast } = useToast();
-  const [selectedLearner, setSelectedLearner] = useState<any>(null);
+  const [selectedLearner, setSelectedLearner] = useState<EnrollmentWithLearner | null>(null);
   const [rubric, setRubric] = useState<PracticalRubric>({
     cpr_aed: {
       ppe: false,

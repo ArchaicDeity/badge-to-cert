@@ -1,17 +1,14 @@
+
+import type { Request, Response } from 'express';
+import formidable, { File } from 'formidable';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import formidable from 'formidable';
+import formidable, { type Fields, type Files, type File } from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { db } from '@/db';
 import { contentUnits } from '@/db/schema';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -20,11 +17,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const form = formidable({ multiples: false });
 
   try {
-    const [fields, files] = await form.parse(req);
+    const [fields, files] = (await form.parse(req)) as [Fields, Files];
     const blockId = parseInt(fields.blockId?.toString() ?? '', 10);
     const durationMinutes = fields.durationMinutes ? parseInt(fields.durationMinutes.toString(), 10) : null;
-
-    const file = files.file;
+    const file = files.file as File | File[] | undefined;
+    const file = (files as Files & { file?: File | File[] }).file;
+    
     if (!blockId || !file) {
       res.status(400).json({ error: 'Missing blockId or file' });
       return;

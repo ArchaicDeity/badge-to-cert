@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle } from 'lucide-react';
 import {
   mockLearners,
+  mockQuestions,
+  mockCohorts,
   getEnterpriseById,
   getCoursesForEnterprise,
   type Question,
@@ -64,7 +66,9 @@ const Kiosk = () => {
   const [quiz, setQuiz] = useState<QuizState>({ questions: [], answers: [], attempts: 0 });
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [learners, setLearners] = useState<Learner[]>([]);
+  const [isLoadingLearners, setIsLoadingLearners] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(cohort?.enterpriseId);
@@ -114,6 +118,23 @@ const Kiosk = () => {
       toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
     }
   }, [token, toast]);
+
+  useEffect(() => {
+    const loadLearners = async () => {
+      setIsLoadingLearners(true);
+      try {
+        const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
+        const data: { learners: Learner[] } = await res.json();
+        setLearners(data.learners ?? []);
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Failed to load learners', variant: 'destructive' });
+      } finally {
+        setIsLoadingLearners(false);
+      }
+    };
+    loadLearners();
+  }, [cohortId, toast]);
 
   // global timer for content/assessment blocks
   useEffect(() => {
@@ -271,6 +292,28 @@ const Kiosk = () => {
     if (!ok) return;
     await startBlock(0);
     toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
+  const handleBadgeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const learner = learners.find((l) => l.badgeId === badgeId.toUpperCase());
+    if (!learner) {
+      toast({
+        title: 'Badge Not Found',
+        description: 'Please check your badge ID and try again',
+        variant: 'destructive',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    try {
+      setCurrentLearner(learner);
+      await loadBlocks(cohortId ?? '0');
+      startBlock(0);
+      toast({ title: 'Welcome!', description: `Starting course for ${learner.name}` });
+    } finally {
+      setIsSubmitting(false);
+    }
+
   };
 
   const handleBadgeSubmit = async (e: React.FormEvent) => {
@@ -429,23 +472,18 @@ const Kiosk = () => {
                         className="text-xl py-6 text-center font-mono"
                         autoFocus
                         required
+                        disabled={isLoadingLearners || isSubmitting}
                       />
                     </div>
-                    <Button type="submit" size="lg" className="w-full text-lg py-6">
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full text-lg py-6"
+                      disabled={isLoadingLearners || isSubmitting}
+                    >
                       Start
                     </Button>
                   </form>
-
-                  <div className="mt-8 p-4 bg-muted/50 rounded-lg">
-                    <h3 className="font-semibold mb-2">Demo Badge IDs:</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {mockLearners.map((l) => (
-                        <div key={l.id} className="font-mono">
-                          {l.badgeId} - {l.name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             </>

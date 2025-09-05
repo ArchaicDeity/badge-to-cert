@@ -1,15 +1,15 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { Request, Response } from 'express';
 import { db } from '@/db';
 import { reviewRequests, courses } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  const reviewId = Number(req.query.id);
+  const reviewId = Number(req.params.id);
   if (Number.isNaN(reviewId)) {
     res.status(400).json({ error: 'Invalid review id' });
     return;

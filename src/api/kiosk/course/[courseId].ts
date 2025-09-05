@@ -1,15 +1,15 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { Request, Response } from 'express';
 import { db } from '@/db';
 import { courses, courseBlocks } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  const courseId = Number(req.query.courseId);
+  const courseId = Number(req.params.courseId);
   if (!courseId) {
     res.status(400).json({ error: 'Invalid courseId' });
     return;
