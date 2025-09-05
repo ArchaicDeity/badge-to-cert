@@ -6,9 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 
 interface ContentEditorProps {
   blockId: number;
+  onBlocksChange?: () => void;
 }
 
-export function ContentEditor({ blockId }: ContentEditorProps) {
+export function ContentEditor({ blockId, onBlocksChange }: ContentEditorProps) {
   const [file, setFile] = useState<File | null>(null);
   const [html, setHtml] = useState('');
   const [url, setUrl] = useState('');
@@ -22,6 +23,7 @@ export function ContentEditor({ blockId }: ContentEditorProps) {
       method: 'POST',
       body: formData,
     });
+    onBlocksChange?.();
   };
 
   const saveHtml = async () => {
@@ -30,6 +32,7 @@ export function ContentEditor({ blockId }: ContentEditorProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blockId, contentType: 'HTML', htmlBody: html }),
     });
+    onBlocksChange?.();
   };
 
   const saveUrl = async () => {
@@ -38,6 +41,7 @@ export function ContentEditor({ blockId }: ContentEditorProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blockId, contentType: 'URL', sourcePath: url }),
     });
+    onBlocksChange?.();
   };
 
   return (
