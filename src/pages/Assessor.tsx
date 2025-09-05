@@ -157,23 +157,34 @@ const Assessor = () => {
     };
   };
 
-  const handleSubmitAssessment = () => {
+  const handleSubmitAssessment = async () => {
     const result = calculateOverallResult();
-    
+
     toast({
       title: result.passed ? "Assessment Passed" : "Assessment Failed",
       description: `Overall Score: ${result.averageScore}%${!result.passed ? ' - Must-pass sections not completed' : ''}`,
       variant: result.passed ? "default" : "destructive",
     });
 
-    // In real app, would save to database
-    console.log('Practical Assessment Result:', {
-      learnerId: selectedLearner.learner.id,
-      passed: result.passed,
-      rubric,
-      assessorNotes,
-      timestamp: new Date().toISOString()
-    });
+    try {
+      await fetch('/api/practical-assessments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          learnerId: selectedLearner?.learner.id,
+          passed: result.passed,
+          rubric,
+          assessorNotes,
+          timestamp: new Date().toISOString()
+        })
+      });
+    } catch {
+      toast({
+        title: "Submission Failed",
+        description: "Could not save assessment result.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!selectedLearner) {
