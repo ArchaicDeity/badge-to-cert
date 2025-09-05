@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useAuth } from '@/lib/use-auth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,16 @@ import {
 } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 import useEnterpriseBranding from '@/hooks/use-enterprise-branding';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -34,6 +44,15 @@ const Dashboard = () => {
   const enterprise = getEnterpriseById(selectedCohort.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(selectedCohort.enterpriseId);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [newCohort, setNewCohort] = useState({
+    date: '',
+    venue: '',
+    instructor: '',
+    assessor: '',
+  });
+  const [rosterFile, setRosterFile] = useState<File | null>(null);
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -63,28 +82,70 @@ const Dashboard = () => {
     { total: 0, notStarted: 0, theoryPass: 0, certified: 0, nyc: 0 }
   );
 
-  const handleUploadRoster = () => {
-    toast({
-      title: "Feature Demo",
-      description: "CSV roster upload would be implemented here",
-    });
+  const handleUploadRoster = () => setRosterOpen(true);
+
+  const handleCreateCohort = () => setCreateOpen(true);
+
+  const submitCreateCohort = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/cohorts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newCohort, enterpriseId: selectedCohort.enterpriseId }),
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: 'Cohort Created', description: 'New cohort has been saved.' });
+      setCreateOpen(false);
+      setNewCohort({ date: '', venue: '', instructor: '', assessor: '' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to create cohort', variant: 'destructive' });
+    }
   };
 
-  const handleCreateCohort = () => {
-    toast({
-      title: "Feature Demo", 
-      description: "Create new cohort form would open here",
-    });
+  const submitRosterUpload = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!rosterFile) return;
+    try {
+      const formData = new FormData();
+      formData.append('file', rosterFile);
+      const res = await fetch(`/api/cohorts/${selectedCohort.id}/roster`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: 'Roster Uploaded', description: 'Learner roster has been uploaded.' });
+      setRosterOpen(false);
+      setRosterFile(null);
+    } catch {
+      toast({ title: 'Error', description: 'Failed to upload roster', variant: 'destructive' });
+    }
   };
 
-  const handleDownloadResults = () => {
-    toast({
-      title: "Downloading Results",
-      description: "CSV and certificate ZIP would be generated here",
-    });
+  const handleDownloadResults = async () => {
+    try {
+      const res = await fetch(`/api/cohorts/${selectedCohort.id}/results-pack`);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const filename = res.headers
+        .get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') ||
+        'results-pack.zip';
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Download Ready', description: 'Results pack downloaded.' });
+    } catch {
+      toast({ title: 'Download Failed', description: 'Could not download results pack', variant: 'destructive' });
+    }
   };
 
   return (
+    <>
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -289,6 +350,81 @@ const Dashboard = () => {
         </Card>
       </div>
     </div>
+
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Cohort</DialogTitle>
+          <DialogDescription>Set up a new training session.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submitCreateCohort} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="cohort-date">Date</Label>
+            <Input
+              id="cohort-date"
+              type="date"
+              value={newCohort.date}
+              onChange={(e) => setNewCohort({ ...newCohort, date: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cohort-venue">Venue</Label>
+            <Input
+              id="cohort-venue"
+              value={newCohort.venue}
+              onChange={(e) => setNewCohort({ ...newCohort, venue: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cohort-instructor">Instructor</Label>
+            <Input
+              id="cohort-instructor"
+              value={newCohort.instructor}
+              onChange={(e) => setNewCohort({ ...newCohort, instructor: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cohort-assessor">Assessor</Label>
+            <Input
+              id="cohort-assessor"
+              value={newCohort.assessor}
+              onChange={(e) => setNewCohort({ ...newCohort, assessor: e.target.value })}
+              required
+            />
+          </div>
+          <DialogFooter>
+            <Button type="submit">Create</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={rosterOpen} onOpenChange={setRosterOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload Roster</DialogTitle>
+          <DialogDescription>Upload a CSV roster for this cohort.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submitRosterUpload} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="roster-file">Roster CSV</Label>
+            <Input
+              id="roster-file"
+              type="file"
+              accept=".csv"
+              onChange={(e) => setRosterFile(e.target.files?.[0] || null)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={!rosterFile}>Upload</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
