@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
-import { 
-  Users, 
-  Calendar, 
-  Upload, 
-  Download, 
-  FileText, 
+import {
+  Users,
+  Calendar,
+  Upload,
+  Download,
+  FileText,
   Shield,
   LogOut,
   Plus,
-  BarChart3
+  BarChart3,
+  Eye
 } from 'lucide-react';
 import { mockCohorts, getCohortEnrollments } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [selectedCohort] = useState(mockCohorts[0]);
 
   if (!user) {
@@ -59,6 +61,10 @@ const Dashboard = () => {
     });
   };
 
+  const handlePreviewCourse = () => {
+    navigate('/admin/courses/1/preview');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -91,7 +97,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8 space-y-8">
         {/* Quick Actions */}
         {user.role === 'ADMIN' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="border-primary/20 hover:shadow-lg transition-shadow cursor-pointer" onClick={handleCreateCohort}>
               <CardContent className="p-6 text-center">
                 <Plus className="h-8 w-8 text-primary mx-auto mb-2" />
@@ -115,12 +121,20 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground">Download CSV + certificates</p>
               </CardContent>
             </Card>
-            
+
             <Card className="border-accent/20 hover:shadow-lg transition-shadow">
               <CardContent className="p-6 text-center">
                 <FileText className="h-8 w-8 text-accent mx-auto mb-2" />
                 <h3 className="font-semibold">Certificate Register</h3>
                 <p className="text-sm text-muted-foreground">Manage issued certificates</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-secondary/20 hover:shadow-lg transition-shadow cursor-pointer" onClick={handlePreviewCourse}>
+              <CardContent className="p-6 text-center">
+                <Eye className="h-8 w-8 text-secondary mx-auto mb-2" />
+                <h3 className="font-semibold">Preview Course</h3>
+                <p className="text-sm text-muted-foreground">Simulate course flow</p>
               </CardContent>
             </Card>
           </div>

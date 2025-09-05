@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { mockQuestions, mockLearners, type Question } from '@/lib/mockData';
+import { mockQuestions, mockLearners, type Question, type Learner } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 
 type KioskStep = 'badge-input' | 'quiz' | 'complete';
@@ -20,7 +20,7 @@ const Kiosk = () => {
   
   const [step, setStep] = useState<KioskStep>('badge-input');
   const [badgeId, setBadgeId] = useState('');
-  const [currentLearner, setCurrentLearner] = useState<any>(null);
+  const [currentLearner, setCurrentLearner] = useState<Learner | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
