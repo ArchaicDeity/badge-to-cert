@@ -11,3 +11,13 @@ export const courses = sqliteTable('courses', {
   enterpriseId: integer('enterprise_id'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
+
+  code: text('code').notNull(),
+  description: text('description'),
+  version: integer('version').notNull().default(1),
+  status: text('status').notNull().default('DRAFT'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(strftime('%s', 'now'))`),
+});
+
