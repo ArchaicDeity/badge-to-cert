@@ -17,13 +17,16 @@ import {
   FileCheck,
   ArrowLeft
 } from 'lucide-react';
-import { getCohortEnrollments, type PracticalRubric } from '@/lib/mockData';
+import { getCohortEnrollments, type PracticalRubric, type Enrollment, type Learner } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 
 const Assessor = () => {
   const { cohortId } = useParams();
   const { toast } = useToast();
-  const [selectedLearner, setSelectedLearner] = useState<any>(null);
+  interface EnrollmentWithLearner extends Enrollment {
+    learner?: Learner;
+  }
+  const [selectedLearner, setSelectedLearner] = useState<EnrollmentWithLearner | null>(null);
   const [rubric, setRubric] = useState<PracticalRubric>({
     cpr_aed: {
       ppe: false,
