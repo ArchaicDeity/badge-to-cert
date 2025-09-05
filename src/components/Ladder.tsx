@@ -32,6 +32,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { ContentEditor } from './ContentEditor'
 
 export type Block = {
   id: number
@@ -52,7 +54,10 @@ type SortableItemProps = Block & {
   onDuplicate: (id: number) => void
   onDisable: (id: number) => void
   onDelete: (id: number) => void
+
   loading: boolean
+  onSelect: (id: number) => void
+
 }
 
 function SortableItem({
@@ -66,6 +71,7 @@ function SortableItem({
   onDuplicate,
   onDisable,
   onDelete,
+  onSelect,
 }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id })
   const style = {
@@ -82,6 +88,9 @@ function SortableItem({
       className={`flex items-center justify-between border p-2 mb-2 bg-white ${
         disabled ? 'opacity-50' : ''
       }`}
+      onClick={() => {
+        if (kind === 'CONTENT') onSelect(id)
+      }}
       {...attributes}
       {...listeners}
     >
@@ -126,6 +135,7 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
   const [isReordering, setIsReordering] = useState(false)
   const { toast } = useToast()
 
+  const [selectedBlockId, setSelectedBlockId] = useState<number | null>(null)
   useEffect(() => {
     setBlocks(initialBlocks)
   }, [initialBlocks])
@@ -292,6 +302,9 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
       setIsAdding(false)
     }
   }
+  const handleSelectBlock = (id: number) => {
+    setSelectedBlockId(id)
+  }
 
   return (
     <div className="flex gap-4">
@@ -334,8 +347,63 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
             ))}
           </SortableContext>
         </DndContext>
+    <>
+      <div className="flex gap-4">
+        <aside className="w-48 border-r pr-4">
+          <h3 className="mb-2 font-semibold">Add Block</h3>
+          <Button
+            variant="outline"
+            className="w-full mb-2"
+            onClick={() => handleAddBlock('CONTENT')}
+          >
+            <BookOpen className="mr-2 h-4 w-4" /> Content
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => handleAddBlock('ASSESSMENT')}
+          >
+            <ClipboardList className="mr-2 h-4 w-4" /> Assessment
+          </Button>
+        </aside>
+        <div className="flex-1">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={blocks} strategy={verticalListSortingStrategy}>
+              {blocks.map((block) => (
+                <SortableItem
+                  key={block.id}
+                  {...block}
+                  onToggleMandatory={handleToggleMandatory}
+                  onDuplicate={handleDuplicate}
+                  onDisable={handleDisable}
+                  onDelete={handleDelete}
+                  onSelect={handleSelectBlock}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
       </div>
-    </div>
+      <Sheet
+        open={selectedBlockId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedBlockId(null)
+        }}
+      >
+        <SheetContent side="right">
+          {selectedBlockId !== null && (
+            <ContentEditor
+              blockId={selectedBlockId}
+              onBlocksChange={onBlocksChange}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
 
