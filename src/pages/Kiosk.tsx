@@ -99,13 +99,21 @@ const Kiosk = () => {
   const [cohortError, setCohortError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [learners, setLearners] = useState<Learner[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // loading and error states for data fetching
+  const [isLoadingCohort, setIsLoadingCohort] = useState(false);
+  const [cohortError, setCohortError] = useState<string | null>(null);
+  const [isLoadingLearners, setIsLoadingLearners] = useState(false);
+  const [learnersError, setLearnersError] = useState<string | null>(null);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [isLoadingLearners, setIsLoadingLearners] = useState(false);
   const [learnersError, setLearnersError] = useState<string | null>(null);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [questionsError, setQuestionsError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [learnerError, setLearnerError] = useState<string | null>(null);
-
   const enterprise = getEnterpriseById(cohort?.enterpriseId);
   useEnterpriseBranding(enterprise);
   const courses = getCoursesForEnterprise(cohort?.enterpriseId);
@@ -170,18 +178,21 @@ const Kiosk = () => {
   };
 
   useEffect(() => {
+    if (!cohortId) return;
+    const loadCohort = async () => {
+      setIsLoadingCohort(true);
     const fetchCohort = async () => {
       setIsLoadingCohort(true);
       setCohortError(null);
       try {
-        /*
-         * Expected: GET /api/kiosk/cohort/:cohortId -> { cohort: Cohort }
-         * Edge cases: 404 if cohort is missing, 500 on server error
-         */
         const res = await fetch(`/api/kiosk/cohort/${cohortId}`);
         if (!res.ok) throw new Error('Failed cohort fetch');
         const data: { cohort: Cohort } = await res.json();
         setCohort(data.cohort ?? null);
+        setCohortError(null);
+      } catch (err) {
+        console.error(err);
+        setCohortError('Failed to load cohort');
       } catch (err) {
         console.error(err);
         setCohortError(err instanceof Error ? err.message : String(err));
@@ -199,11 +210,13 @@ const Kiosk = () => {
         setIsLoadingCohort(false);
       }
     };
+    loadCohort();
     fetchCohort();
   }, [cohortId]);
 
   useEffect(() => {
     loadLearners();
+
   }, [cohortId]);
 
   useEffect(() => {
@@ -212,17 +225,23 @@ const Kiosk = () => {
     }
   }, [token, toast]);
 
+  // Fetch learners once cohort is loaded
   useEffect(() => {
+    if (cohort === null) return;
     const loadLearners = async () => {
       setIsLoadingLearners(true);
       setLearnersError(null);
       try {
+        const url = cohortId ? `/api/kiosk/learners/${cohortId}` : '/api/learners';
+        const res = await fetch(url);
         const res = await fetch(`/api/kiosk/learners/${cohortId ?? '0'}`);
         if (!res.ok) throw new Error('Failed learners fetch');
         const data: { learners: Learner[] } = await res.json();
         setLearners(data.learners ?? []);
+        setLearnersError(null);
       } catch (err) {
         console.error(err);
+        setLearnersError('Failed to load learners');
         setLearnersError(err instanceof Error ? err.message : String(err));
         toast({ title: 'Failed to load learners', variant: 'destructive' });
       } finally {
@@ -248,6 +267,32 @@ const Kiosk = () => {
         console.error(err);
       }
     };
+    loadLearners();
+  }, [cohort, cohortId]);
+
+  // Fetch questions for active assessment block
+  useEffect(() => {
+    const block = blocks[currentIndex];
+    if (step !== 'block' || !block || block.kind !== 'ASSESSMENT') return;
+
+    const loadQuestions = async () => {
+      setIsLoadingQuestions(true);
+      try {
+        const url = block ? `/api/kiosk/questions/${block.id}` : '/api/questions';
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed questions fetch');
+        const data: { questions: Question[] } = await res.json();
+        setQuestions(data.questions ?? []);
+        setQuestionsError(null);
+      } catch (err) {
+        console.error(err);
+        setQuestionsError('Failed to load questions');
+      } finally {
+        setIsLoadingQuestions(false);
+      }
+    };
+    loadQuestions();
+  }, [step, currentIndex, blocks]);
     loadEnterpriseAndCourses();
   }, [cohort?.enterpriseId]);
 
@@ -256,7 +301,6 @@ const Kiosk = () => {
       toast({ title: 'Access Denied', description: 'Invalid kiosk token', variant: 'destructive' });
     }
   }, [token, toast]);
-
   // global timer for content/assessment blocks
   useEffect(() => {
     if (step === 'block' && timer > 0) {
