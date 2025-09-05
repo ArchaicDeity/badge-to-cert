@@ -19,6 +19,8 @@ export default async function handler(req: Request, res: Response) {
     const blockId = parseInt(fields.blockId?.toString() ?? '', 10);
     const durationMinutes = fields.durationMinutes ? parseInt(fields.durationMinutes.toString(), 10) : null;
     const file = files.file as File | File[] | undefined;
+    const file = (files as Files & { file?: File | File[] }).file;
+
     
     if (!blockId || !file) {
       res.status(400).json({ error: 'Missing blockId or file' });

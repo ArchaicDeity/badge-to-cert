@@ -1,4 +1,3 @@
-
 import type { Request, Response } from 'express';
 import { db } from '@/db';
 import { courseBlocks } from '@/db/schema';
