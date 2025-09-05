@@ -71,3 +71,47 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Questions Bulk Import API
+
+`POST /api/questions/bulk-import` supports importing questions in either JSON or CSV format.
+
+### JSON
+
+Send `Content-Type: application/json` with an `assessmentId` and either an `items` array or a `csv` string:
+
+```json
+{
+  "assessmentId": 1,
+  "items": [
+    {
+      "type": "MCQ",
+      "body": "Question text",
+      "choices": ["a", "b", "c", "d"],
+      "correctIndex": 0,
+      "explanation": "Optional explanation"
+    }
+  ]
+}
+```
+
+Alternatively, supply the questions as a CSV string:
+
+```json
+{
+  "assessmentId": 1,
+  "csv": "type,body,choices,correctIndex,correctBool,explanation,tags\nMCQ,What is 2+2?,\"1|2|3|4\",3,,Example explanation,math"
+}
+```
+
+### CSV
+
+Send `Content-Type: text/csv` and provide the assessment id as a query parameter:
+
+```
+POST /api/questions/bulk-import?assessmentId=1
+type,body,choices,correctIndex,correctBool,explanation,tags
+MCQ,What is 2+2?,"1|2|3|4",3,,Example explanation,math
+```
+
+`choices` values should be separated by `|`.
