@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
+import { useToast } from '@/hooks/use-toast'
 
 export type Block = {
   id: number
@@ -51,6 +52,7 @@ type SortableItemProps = Block & {
   onDuplicate: (id: number) => void
   onDisable: (id: number) => void
   onDelete: (id: number) => void
+  loading: boolean
 }
 
 function SortableItem({
@@ -59,6 +61,7 @@ function SortableItem({
   kind,
   isMandatory,
   disabled,
+  loading,
   onToggleMandatory,
   onDuplicate,
   onDisable,
@@ -90,22 +93,23 @@ function SortableItem({
         <Switch
           checked={isMandatory}
           onCheckedChange={(val) => onToggleMandatory(id, val)}
+          disabled={loading}
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" disabled={loading}>
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => onDuplicate(id)}>
+            <DropdownMenuItem onSelect={() => onDuplicate(id)} disabled={loading}>
               <Copy className="mr-2 h-4 w-4" /> Duplicate
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onDisable(id)}>
+            <DropdownMenuItem onSelect={() => onDisable(id)} disabled={loading}>
               <Ban className="mr-2 h-4 w-4" />{' '}
               {disabled ? 'Enable' : 'Disable'}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onDelete(id)}>
+            <DropdownMenuItem onSelect={() => onDelete(id)} disabled={loading}>
               <Trash2 className="mr-2 h-4 w-4" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -117,53 +121,98 @@ function SortableItem({
 
 export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps) {
   const [blocks, setBlocks] = useState(initialBlocks)
+  const [loadingIds, setLoadingIds] = useState<number[]>([])
+  const [isAdding, setIsAdding] = useState(false)
+  const [isReordering, setIsReordering] = useState(false)
+  const { toast } = useToast()
+
   useEffect(() => {
     setBlocks(initialBlocks)
   }, [initialBlocks])
   const sensors = useSensors(useSensor(PointerSensor))
 
+  const setBlockLoading = (id: number, loading: boolean) => {
+    setLoadingIds((prev) =>
+      loading ? [...prev, id] : prev.filter((i) => i !== id),
+    )
+  }
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    if (isReordering) return
     const { active, over } = event
     if (over && active.id !== over.id) {
       const oldIndex = blocks.findIndex((b) => b.id === active.id)
       const newIndex = blocks.findIndex((b) => b.id === over.id)
       const newBlocks = arrayMove(blocks, oldIndex, newIndex)
+      const previousBlocks = blocks
       setBlocks(newBlocks)
-      await fetch('/api/blocks/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId, order: newBlocks.map((b) => b.id) }),
-      })
-      onBlocksChange?.()
+      setIsReordering(true)
+      try {
+        const res = await fetch('/api/blocks/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courseId, order: newBlocks.map((b) => b.id) }),
+        })
+        if (!res.ok) throw new Error()
+        onBlocksChange?.()
+      } catch (e) {
+        setBlocks(previousBlocks)
+        toast({
+          title: 'Error',
+          description: 'Failed to reorder blocks',
+        })
+      } finally {
+        setIsReordering(false)
+      }
     }
   }
 
   const handleToggleMandatory = async (id: number, value: boolean) => {
+    const previousBlocks = blocks
     setBlocks((prev) =>
       prev.map((b) => (b.id === id ? { ...b, isMandatory: value } : b)),
     )
-    const res = await fetch('/api/blocks/mandatory', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    if (res.ok) {
+    setBlockLoading(id, true)
+    try {
+      const res = await fetch('/api/blocks/mandatory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error()
       const { block } = await res.json()
       setBlocks((prev) => prev.map((b) => (b.id === block.id ? block : b)))
       onBlocksChange?.()
+    } catch (e) {
+      setBlocks(previousBlocks)
+      toast({
+        title: 'Error',
+        description: 'Failed to update mandatory status',
+      })
+    } finally {
+      setBlockLoading(id, false)
     }
   }
 
   const handleDuplicate = async (id: number) => {
-    const res = await fetch('/api/blocks/duplicate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    if (res.ok) {
+    setBlockLoading(id, true)
+    try {
+      const res = await fetch('/api/blocks/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error()
       const { block } = await res.json()
       setBlocks((prev) => [...prev, block])
       onBlocksChange?.()
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: 'Failed to duplicate block',
+      })
+    } finally {
+      setBlockLoading(id, false)
     }
   }
 
@@ -171,43 +220,76 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
     const block = blocks.find((b) => b.id === id)
     if (!block) return
     const disabled = !block.disabled
+    const previousBlocks = blocks
     setBlocks((prev) =>
       prev.map((b) => (b.id === id ? { ...b, disabled } : b)),
     )
-    const res = await fetch('/api/blocks/disable', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    if (res.ok) {
+    setBlockLoading(id, true)
+    try {
+      const res = await fetch('/api/blocks/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error()
       const { block: updated } = await res.json()
       setBlocks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
       onBlocksChange?.()
+    } catch (e) {
+      setBlocks(previousBlocks)
+      toast({
+        title: 'Error',
+        description: 'Failed to update block',
+      })
+    } finally {
+      setBlockLoading(id, false)
     }
   }
 
   const handleDelete = async (id: number) => {
+    const previousBlocks = blocks
     setBlocks((prev) => prev.filter((b) => b.id !== id))
-    await fetch('/api/blocks/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    onBlocksChange?.()
+    setBlockLoading(id, true)
+    try {
+      const res = await fetch('/api/blocks/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error()
+      onBlocksChange?.()
+    } catch (e) {
+      setBlocks(previousBlocks)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete block',
+      })
+    } finally {
+      setBlockLoading(id, false)
+    }
   }
 
   const handleAddBlock = async (kind: 'CONTENT' | 'ASSESSMENT') => {
     const title =
       kind === 'CONTENT' ? 'New Content Block' : 'New Assessment Block'
-    const res = await fetch('/api/blocks/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ courseId, kind, title }),
-    })
-    if (res.ok) {
+    setIsAdding(true)
+    try {
+      const res = await fetch('/api/blocks/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId, kind, title }),
+      })
+      if (!res.ok) throw new Error()
       const { block } = await res.json()
       setBlocks((prev) => [...prev, block])
       onBlocksChange?.()
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add block',
+      })
+    } finally {
+      setIsAdding(false)
     }
   }
 
@@ -219,6 +301,7 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
           variant="outline"
           className="w-full mb-2"
           onClick={() => handleAddBlock('CONTENT')}
+          disabled={isAdding}
         >
           <BookOpen className="mr-2 h-4 w-4" /> Content
         </Button>
@@ -226,6 +309,7 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
           variant="outline"
           className="w-full"
           onClick={() => handleAddBlock('ASSESSMENT')}
+          disabled={isAdding}
         >
           <ClipboardList className="mr-2 h-4 w-4" /> Assessment
         </Button>
@@ -245,6 +329,7 @@ export function Ladder({ courseId, initialBlocks, onBlocksChange }: LadderProps)
                 onDuplicate={handleDuplicate}
                 onDisable={handleDisable}
                 onDelete={handleDelete}
+                loading={loadingIds.includes(block.id)}
               />
             ))}
           </SortableContext>
