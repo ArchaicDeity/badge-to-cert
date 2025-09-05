@@ -3,7 +3,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 
 import Dashboard from '@/pages/Dashboard';
-import { useAuth, type UserRole } from '@/lib/auth';
+import { useAuth, type UserRole } from '@/lib/use-auth';
+import { type UserRole, useAuth } from '@/lib/auth';
+
 
 // Mock hooks and contexts used within Dashboard
 vi.mock('@/hooks/use-toast', () => ({
@@ -15,7 +17,7 @@ vi.mock('@/hooks/use-enterprise-branding', () => ({
   default: () => {},
 }));
 
-vi.mock('@/lib/auth', () => ({
+vi.mock('@/lib/use-auth', () => ({
   useAuth: vi.fn(),
 }));
 
