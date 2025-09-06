@@ -18,12 +18,11 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { getCohortEnrollments, type PracticalRubric } from '@/lib/mockData';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 
 const Assessor = () => {
   const { cohortId } = useParams();
-  const { toast } = useToast();
-  const [selectedLearner, setSelectedLearner] = useState<any>(null);
+  const [selectedLearner, setSelectedLearner] = useState<Record<string, unknown> | null>(null);
   const [rubric, setRubric] = useState<PracticalRubric>({
     cpr_aed: {
       ppe: false,
@@ -161,11 +160,11 @@ const Assessor = () => {
   const handleSubmitAssessment = () => {
     const result = calculateOverallResult();
     
-    toast({
-      title: result.passed ? "Assessment Passed" : "Assessment Failed",
-      description: `Overall Score: ${result.averageScore}%${!result.passed ? ' - Must-pass sections not completed' : ''}`,
-      variant: result.passed ? "default" : "destructive",
-    });
+    if (result.passed) {
+      toast.success(`Assessment Passed - Overall Score: ${result.averageScore}%`);
+    } else {
+      toast.error(`Assessment Failed - Overall Score: ${result.averageScore}% - Must-pass sections not completed`);
+    }
 
     // In real app, would save to database
     console.log('Practical Assessment Result:', {

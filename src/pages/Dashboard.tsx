@@ -17,11 +17,10 @@ import {
   BarChart3
 } from 'lucide-react';
 import { mockCohorts, getCohortEnrollments } from '@/lib/mockData';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
-  const { toast } = useToast();
   const [selectedCohort] = useState(mockCohorts[0]);
 
   if (!user) {
@@ -38,26 +37,17 @@ const Dashboard = () => {
     nyc: enrollments.filter(e => e.status === 'NYC').length,
   };
 
-  const handleUploadRoster = () => {
-    toast({
-      title: "Feature Demo",
-      description: "CSV roster upload would be implemented here",
-    });
-  };
+    const handleUploadRoster = () => {
+      toast.success("CSV roster upload would be implemented here");
+    };
 
-  const handleCreateCohort = () => {
-    toast({
-      title: "Feature Demo", 
-      description: "Create new cohort form would open here",
-    });
-  };
+    const handleCreateCohort = () => {
+      toast.success("Create new cohort form would open here");
+    };
 
-  const handleDownloadResults = () => {
-    toast({
-      title: "Downloading Results",
-      description: "CSV and certificate ZIP would be generated here",
-    });
-  };
+    const handleDownloadResults = () => {
+      toast.success("CSV and certificate ZIP would be generated here");
+    };
 
   return (
     <div className="min-h-screen bg-background">

@@ -5,14 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 import { Shield, Users, Eye } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { user, login, isLoading } = useAuth();
-  const { toast } = useToast();
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -22,18 +21,11 @@ const Login = () => {
     e.preventDefault();
     
     const success = await login(email, password);
-    
+
     if (success) {
-      toast({
-        title: "Login successful",
-        description: "Welcome to First Aid Training System",
-      });
+      toast.success("Login successful. Welcome to First Aid Training System");
     } else {
-      toast({
-        title: "Login failed",
-        description: "Invalid credentials. Try password 'password' or 'admin123'",
-        variant: "destructive",
-      });
+      toast.error("Login failed. Invalid credentials. Try password 'password' or 'admin123'");
     }
   };
 

@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Clock, User, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { mockQuestions, mockLearners, type Question } from '@/lib/mockData';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'react-hot-toast';
 
 type KioskStep = 'badge-input' | 'quiz' | 'complete';
 
@@ -16,11 +16,10 @@ const Kiosk = () => {
   const { cohortId } = useParams();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('t');
-  const { toast } = useToast();
   
   const [step, setStep] = useState<KioskStep>('badge-input');
   const [badgeId, setBadgeId] = useState('');
-  const [currentLearner, setCurrentLearner] = useState<any>(null);
+  const [currentLearner, setCurrentLearner] = useState<Record<string, unknown> | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
@@ -28,15 +27,11 @@ const Kiosk = () => {
   const [quizResult, setQuizResult] = useState<{ score: number; passed: boolean } | null>(null);
 
   // Validate kiosk token
-  useEffect(() => {
-    if (!token || token !== 'demo123') {
-      toast({
-        title: "Access Denied",
-        description: "Invalid kiosk token",
-        variant: "destructive",
-      });
-    }
-  }, [token, toast]);
+    useEffect(() => {
+      if (!token || token !== 'demo123') {
+        toast.error("Invalid kiosk token");
+      }
+    }, [token]);
 
   // Timer for quiz
   useEffect(() => {
@@ -66,14 +61,10 @@ const Kiosk = () => {
     
     const learner = mockLearners.find(l => l.badgeId === badgeId.toUpperCase());
     
-    if (!learner) {
-      toast({
-        title: "Badge Not Found",
-        description: "Please check your badge ID and try again",
-        variant: "destructive",
-      });
-      return;
-    }
+      if (!learner) {
+        toast.error("Please check your badge ID and try again");
+        return;
+      }
 
     setCurrentLearner(learner);
     
@@ -83,10 +74,7 @@ const Kiosk = () => {
     setAnswers(new Array(shuffled.length).fill(-1));
     setStep('quiz');
     
-    toast({
-      title: "Welcome!",
-      description: `Starting quiz for ${learner.name}`,
-    });
+      toast.success(`Starting quiz for ${learner.name}`);
   };
 
   const handleAnswerSelect = (answerIndex: number) => {
@@ -122,11 +110,11 @@ const Kiosk = () => {
     setQuizResult({ score, passed });
     setStep('complete');
     
-    toast({
-      title: passed ? "Quiz Passed!" : "Quiz Not Passed",
-      description: `Score: ${score}% (${correctAnswers}/${questions.length} correct)`,
-      variant: passed ? "default" : "destructive",
-    });
+      if (passed) {
+        toast.success(`Quiz Passed! Score: ${score}% (${correctAnswers}/${questions.length} correct)`);
+      } else {
+        toast.error(`Quiz Not Passed. Score: ${score}% (${correctAnswers}/${questions.length} correct)`);
+      }
   };
 
   const resetKiosk = () => {
