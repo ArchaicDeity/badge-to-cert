@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Kiosk from "./pages/Kiosk";
 import Assessor from "./pages/Assessor";
+import CourseEditor from "./pages/CourseEditor";
 import Verify from "./pages/Verify";
 import NotFound from "./pages/NotFound";
 
@@ -47,6 +48,14 @@ const App = () => (
                 <Dashboard />
               </ProtectedRoute>
             } />
+            <Route
+              path="/courses/:courseId/edit"
+              element={
+                <ProtectedRoute>
+                  <CourseEditor />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/kiosk/:cohortId" element={<Kiosk />} />
             <Route path="/assessor/:cohortId" element={<Assessor />} />
             <Route path="/verify/:certificateCode" element={<Verify />} />
