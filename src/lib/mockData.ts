@@ -1,4 +1,4 @@
-import { LearnerStatus } from "@/components/StatusBadge";
+import { CourseStatus } from "@/constants/enums";
 
 export interface Question {
   id: string;
@@ -28,7 +28,7 @@ export interface Enrollment {
   id: string;
   learnerId: string;
   cohortId: string;
-  status: LearnerStatus;
+  status: CourseStatus;
   theoryScore?: number;
   practicalPassed?: boolean;
 }
@@ -167,11 +167,11 @@ export const mockCohorts: Cohort[] = [
 ];
 
 export const mockEnrollments: Enrollment[] = [
-  { id: '1', learnerId: '1', cohortId: '1', status: 'PRACTICAL_PASS', theoryScore: 85, practicalPassed: true },
-  { id: '2', learnerId: '2', cohortId: '1', status: 'THEORY_PASS', theoryScore: 80 },
-  { id: '3', learnerId: '3', cohortId: '1', status: 'NOT_STARTED' },
-  { id: '4', learnerId: '4', cohortId: '1', status: 'NYC', theoryScore: 75, practicalPassed: false },
-  { id: '5', learnerId: '5', cohortId: '1', status: 'THEORY_PASS', theoryScore: 90 },
+  { id: '1', learnerId: '1', cohortId: '1', status: CourseStatus.PRACTICAL_PASS, theoryScore: 85, practicalPassed: true },
+  { id: '2', learnerId: '2', cohortId: '1', status: CourseStatus.THEORY_PASS, theoryScore: 80 },
+  { id: '3', learnerId: '3', cohortId: '1', status: CourseStatus.NOT_STARTED },
+  { id: '4', learnerId: '4', cohortId: '1', status: CourseStatus.NYC, theoryScore: 75, practicalPassed: false },
+  { id: '5', learnerId: '5', cohortId: '1', status: CourseStatus.THEORY_PASS, theoryScore: 90 },
 ];
 
 export const getEnrollmentWithLearner = (enrollment: Enrollment) => {

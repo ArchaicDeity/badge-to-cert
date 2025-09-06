@@ -71,3 +71,13 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Enum Management
+
+Shared enums for course status, block kind and content type live in `src/constants/enums.ts`. To introduce a new state such as `IN_REVIEW` or `ARCHIVED`:
+
+1. Add the value to the appropriate enum in `src/constants/enums.ts`.
+2. Update any UI components (e.g. `StatusBadge`), data generators and business logic that reference the enum.
+3. Provide styling and labels for new course statuses.
+
+Keeping enums in one place ensures consistent state handling across the app.

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/StatusBadge';
+import { CourseStatus } from '@/constants/enums';
 import { 
   Users, 
   Calendar, 
@@ -32,10 +33,10 @@ const Dashboard = () => {
   
   const stats = {
     total: enrollments.length,
-    notStarted: enrollments.filter(e => e.status === 'NOT_STARTED').length,
-    theoryPass: enrollments.filter(e => e.status === 'THEORY_PASS').length,
-    certified: enrollments.filter(e => e.status === 'PRACTICAL_PASS').length,
-    nyc: enrollments.filter(e => e.status === 'NYC').length,
+    notStarted: enrollments.filter(e => e.status === CourseStatus.NOT_STARTED).length,
+    theoryPass: enrollments.filter(e => e.status === CourseStatus.THEORY_PASS).length,
+    certified: enrollments.filter(e => e.status === CourseStatus.PRACTICAL_PASS).length,
+    nyc: enrollments.filter(e => e.status === CourseStatus.NYC).length,
   };
 
   const handleUploadRoster = () => {

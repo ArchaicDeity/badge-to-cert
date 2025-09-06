@@ -18,6 +18,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { getCohortEnrollments, type PracticalRubric } from '@/lib/mockData';
+import { CourseStatus } from '@/constants/enums';
 import { useToast } from '@/hooks/use-toast';
 
 const Assessor = () => {
@@ -61,8 +62,8 @@ const Assessor = () => {
   const [assessorNotes, setAssessorNotes] = useState('');
 
   const enrollments = getCohortEnrollments(cohortId || '1');
-  const eligibleLearners = enrollments.filter(e => 
-    ['THEORY_PASS', 'PRACTICAL_PASS', 'NYC'].includes(e.status)
+  const eligibleLearners = enrollments.filter(e =>
+    [CourseStatus.THEORY_PASS, CourseStatus.PRACTICAL_PASS, CourseStatus.NYC].includes(e.status)
   );
 
   const rubricSections = [
@@ -219,7 +220,7 @@ const Assessor = () => {
                     <div className="flex items-center gap-3">
                       <StatusBadge status={enrollment.status} />
                       <Button variant="outline">
-                        {enrollment.status === 'THEORY_PASS' ? 'Start Assessment' : 'Re-assess'}
+                        {enrollment.status === CourseStatus.THEORY_PASS ? 'Start Assessment' : 'Re-assess'}
                       </Button>
                     </div>
                   </div>

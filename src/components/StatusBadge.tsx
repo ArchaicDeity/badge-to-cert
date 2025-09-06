@@ -1,32 +1,31 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-export type LearnerStatus = 'NOT_STARTED' | 'THEORY_PASS' | 'PRACTICAL_PASS' | 'NYC';
+import { CourseStatus } from "@/constants/enums";
 
 interface StatusBadgeProps {
-  status: LearnerStatus;
+  status: CourseStatus;
   className?: string;
 }
 
-const statusConfig = {
-  NOT_STARTED: {
+const statusConfig: Record<CourseStatus, { label: string; variant: "secondary" | "destructive"; className: string }> = {
+  [CourseStatus.NOT_STARTED]: {
     label: 'Not Started',
-    variant: 'secondary' as const,
+    variant: 'secondary',
     className: 'bg-muted text-muted-foreground'
   },
-  THEORY_PASS: {
+  [CourseStatus.THEORY_PASS]: {
     label: 'Theory Pass',
-    variant: 'secondary' as const,
+    variant: 'secondary',
     className: 'bg-warning/10 text-warning-foreground border-warning/20'
   },
-  PRACTICAL_PASS: {
+  [CourseStatus.PRACTICAL_PASS]: {
     label: 'Certified',
-    variant: 'secondary' as const,
+    variant: 'secondary',
     className: 'bg-success/10 text-success-foreground border-success/20'
   },
-  NYC: {
+  [CourseStatus.NYC]: {
     label: 'Not Yet Competent',
-    variant: 'destructive' as const,
+    variant: 'destructive',
     className: 'bg-destructive/10 text-destructive border-destructive/20'
   }
 };
